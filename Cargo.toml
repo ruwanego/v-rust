@@ -1,0 +1,20 @@
+[package]
+name = "v-rust"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+inkwell = { version = "0.8.0", features = ["llvm15-0"] }
+logos = "0.14"
+chumsky = "0.9"
+clap = { version = "4.0", features = ["derive"] }
+
+[dev-dependencies]
+assert_cmd = "2.0"
+libtest-mimic = "0.6"
+walkdir = "2.3"
+tempfile = "3.8"
+
+[[test]]
+name = "official_suite"
+harness = false

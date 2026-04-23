@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    volumes:
+      - .:/usr/src/v-rust
+      # This mount keeps the build targets inside the container's environment
+      # to avoid architecture conflicts with your host target folder
+      - target_cache:/usr/src/v-rust/target
+    environment:
+      - CARGO_TERM_COLOR=always
+    working_dir: /usr/src/v-rust
+    command: cargo test --test official_suite
+
+volumes:
+  target_cache:
