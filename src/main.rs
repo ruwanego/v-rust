@@ -2,8 +2,9 @@ use clap::Parser;
 use std::path::PathBuf;
 use std::process::exit;
 
-pub mod lexer;
-pub mod parser;
+pub mod lex;
+pub mod parse;
+pub mod sema;
 #[cfg(feature = "codegen")]
 pub mod codegen;
 
@@ -35,7 +36,7 @@ fn main() {
     });
 
     use logos::Logos;
-    let tokens: Result<Vec<_>, _> = lexer::Token::lexer(&source_code).collect();
+    let tokens: Result<Vec<_>, _> = lex::Token::lexer(&source_code).collect();
     let tokens = match tokens {
         Ok(t) => t,
         Err(_) => {
@@ -46,7 +47,7 @@ fn main() {
 
     // 2. Parse
     use chumsky::Parser;
-    let program = match parser::parser().parse(tokens) {
+    let program = match parse::parser().parse(tokens) {
         Ok(p) => p,
         Err(e) => {
             eprintln!("Parser error: {:?}", e);
@@ -54,11 +55,22 @@ fn main() {
         }
     };
 
-    // 3. Codegen (LLVM)
+    // 3. Sema
+    let mut analyzer = sema::SemanticAnalyzer::new();
+    if let Err(errors) = analyzer.analyze(&program) {
+        for err in errors {
+            eprintln!("Semantic error: {}", err.message);
+        }
+        exit(1);
+    }
+
+    // 4. Codegen (LLVM)
     #[cfg(feature = "codegen")]
     {
-        let context = inkwell::context::Context::create();
-        let codegen = codegen::CodeGen::new(&context, "main_module");
+        use inkwell::context::Context;
+
+        let context = Context::create();
+        let codegen = codegen::CodeGen::new(&context, "v_module");
         codegen.generate(&program);
 
         let obj_path = std::env::temp_dir().join("output.o");

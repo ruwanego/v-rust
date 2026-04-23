@@ -1,6 +1,6 @@
 pub mod ast;
 
-use crate::lexer::Token;
+use crate::lex::Token;
 use ast::{Expr, FunctionDecl, Program, Stmt};
 use chumsky::prelude::*;
 

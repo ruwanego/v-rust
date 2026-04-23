@@ -1,4 +1,4 @@
-use crate::parser::ast::{Expr, Program, Stmt};
+use crate::parse::ast::{Expr, Program, Stmt};
 use inkwell::context::Context;
 use inkwell::module::Module;
 use inkwell::targets::{CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine};
@@ -89,7 +89,7 @@ impl<'ctx> CodeGen<'ctx> {
                         self.builder.build_store(*ptr, val).unwrap();
                     }
                 } else {
-                    panic!("Variable {} not found for assignment", name);
+                    unreachable!("Sema should have caught undefined variable: {}", name);
                 }
             }
         }
@@ -108,7 +108,7 @@ impl<'ctx> CodeGen<'ctx> {
                     let loaded = self.builder.build_load(self.context.i64_type(), *ptr, name).unwrap();
                     Some(loaded)
                 } else {
-                    panic!("Variable {} not found in scope", name);
+                    unreachable!("Sema should have caught undefined variable: {}", name);
                 }
             }
             Expr::FunctionCall { .. } => None, // for now, func calls return nothing
