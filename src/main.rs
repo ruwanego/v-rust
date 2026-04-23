@@ -4,6 +4,7 @@ use std::process::exit;
 
 pub mod lexer;
 pub mod parser;
+#[cfg(feature = "codegen")]
 pub mod codegen;
 
 #[derive(Parser, Debug)]
@@ -54,33 +55,36 @@ fn main() {
     };
 
     // 3. Codegen (LLVM)
-    let context = inkwell::context::Context::create();
-    let codegen = codegen::CodeGen::new(&context, "main_module");
-    codegen.generate(&program);
+    #[cfg(feature = "codegen")]
+    {
+        let context = inkwell::context::Context::create();
+        let codegen = codegen::CodeGen::new(&context, "main_module");
+        codegen.generate(&program);
 
-    let obj_path = std::env::temp_dir().join("output.o");
-    if let Err(e) = codegen.write_obj(&obj_path) {
-        eprintln!("Codegen error: {}", e);
-        exit(1);
-    }
-
-    // 4. Link
-    let output = std::process::Command::new("clang")
-        .arg(obj_path.to_str().unwrap())
-        .arg("-o")
-        .arg(args.output.to_str().unwrap())
-        .output()
-        .unwrap_or_else(|e| {
-            eprintln!("Failed to execute linker: {}", e);
+        let obj_path = std::env::temp_dir().join("output.o");
+        if let Err(e) = codegen.write_obj(&obj_path) {
+            eprintln!("Codegen error: {}", e);
             exit(1);
-        });
+        }
 
-    if !output.status.success() {
-        eprintln!(
-            "Linker failed:\n{}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-        exit(1);
+        // 4. Link
+        let output = std::process::Command::new("clang")
+            .arg(obj_path.to_str().unwrap())
+            .arg("-o")
+            .arg(args.output.to_str().unwrap())
+            .output()
+            .unwrap_or_else(|e| {
+                eprintln!("Failed to execute linker: {}", e);
+                exit(1);
+            });
+
+        if !output.status.success() {
+            eprintln!(
+                "Linker failed:\n{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            exit(1);
+        }
     }
 
     // Success!

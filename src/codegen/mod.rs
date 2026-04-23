@@ -25,7 +25,7 @@ impl<'ctx> CodeGen<'ctx> {
     pub fn generate(&self, program: &Program) {
         // Declare printf
         let i32_type = self.context.i32_type();
-        let i8_ptr_type = self.context.i8_type().ptr_type(inkwell::AddressSpace::Generic);
+        let i8_ptr_type = self.context.i8_type().ptr_type(inkwell::AddressSpace::default());
         let printf_type = i32_type.fn_type(&[i8_ptr_type.into()], true); // true for variadic
         let printf_func = self.module.add_function("printf", printf_type, None);
 
