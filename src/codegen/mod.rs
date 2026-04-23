@@ -1,4 +1,4 @@
-use crate::parser::ast::Program;
+use crate::parser::ast::{Expr, Program};
 use inkwell::context::Context;
 use inkwell::module::Module;
 use inkwell::targets::{CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine};
@@ -23,18 +23,48 @@ impl<'ctx> CodeGen<'ctx> {
     }
 
     pub fn generate(&self, program: &Program) {
+        // Declare printf
+        let i32_type = self.context.i32_type();
+        let i8_ptr_type = self.context.i8_type().ptr_type(inkwell::AddressSpace::Generic);
+        let printf_type = i32_type.fn_type(&[i8_ptr_type.into()], true); // true for variadic
+        let printf_func = self.module.add_function("printf", printf_type, None);
+
         for func in &program.functions {
-            // For now, hardcode signature to `i32 main()`
-            let i32_type = self.context.i32_type();
             let fn_type = i32_type.fn_type(&[], false);
             let function = self.module.add_function(&func.name, fn_type, None);
             let basic_block = self.context.append_basic_block(function, "entry");
 
             self.builder.position_at_end(basic_block);
 
+            // Traverse the body expressions
+            for expr in &func.body {
+                self.generate_expr(expr, printf_func);
+            }
+
             // return 0;
             let zero = i32_type.const_int(0, false);
             self.builder.build_return(Some(&zero));
+        }
+    }
+
+    fn generate_expr(&self, expr: &Expr, printf_func: inkwell::values::FunctionValue<'ctx>) {
+        match expr {
+            Expr::StringLiteral(_) => {
+                // Not doing anything standalone for now
+            }
+            Expr::IntLiteral(_) => {
+                // Not doing anything standalone for now
+            }
+            Expr::FunctionCall { name, args } => {
+                if name == "println" && args.len() == 1 {
+                    if let Expr::StringLiteral(s) = &args[0] {
+                        let mut formatted = s.clone();
+                        formatted.push('\n');
+                        let global_str = self.builder.build_global_string_ptr(&formatted, "str").unwrap();
+                        self.builder.build_call(printf_func, &[global_str.as_pointer_value().into()], "printf_call").unwrap();
+                    }
+                }
+            }
         }
     }
 
