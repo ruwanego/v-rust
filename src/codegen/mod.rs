@@ -1,8 +1,9 @@
-use crate::parser::ast::{Expr, Program};
+use crate::parser::ast::{Expr, Program, Stmt};
 use inkwell::context::Context;
 use inkwell::module::Module;
 use inkwell::targets::{CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine};
 use inkwell::OptimizationLevel;
+use std::collections::HashMap;
 use std::path::Path;
 
 pub struct CodeGen<'ctx> {
@@ -36,9 +37,11 @@ impl<'ctx> CodeGen<'ctx> {
 
             self.builder.position_at_end(basic_block);
 
-            // Traverse the body expressions
-            for expr in &func.body {
-                self.generate_expr(expr, printf_func);
+            let mut env = HashMap::new();
+
+            // Traverse the body statements
+            for stmt in &func.body {
+                self.generate_stmt(stmt, printf_func, &mut env);
             }
 
             // return 0;
@@ -47,24 +50,68 @@ impl<'ctx> CodeGen<'ctx> {
         }
     }
 
-    fn generate_expr(&self, expr: &Expr, printf_func: inkwell::values::FunctionValue<'ctx>) {
-        match expr {
-            Expr::StringLiteral(_) => {
-                // Not doing anything standalone for now
-            }
-            Expr::IntLiteral(_) => {
-                // Not doing anything standalone for now
-            }
-            Expr::FunctionCall { name, args } => {
-                if name == "println" && args.len() == 1 {
-                    if let Expr::StringLiteral(s) = &args[0] {
-                        let mut formatted = s.clone();
-                        formatted.push('\n');
-                        let global_str = self.builder.build_global_string_ptr(&formatted, "str").unwrap();
-                        self.builder.build_call(printf_func, &[global_str.as_pointer_value().into()], "printf_call").unwrap();
+    fn generate_stmt(
+        &self,
+        stmt: &Stmt,
+        printf_func: inkwell::values::FunctionValue<'ctx>,
+        env: &mut HashMap<String, inkwell::values::PointerValue<'ctx>>,
+    ) {
+        match stmt {
+            Stmt::ExprStmt(expr) => {
+                if let Expr::FunctionCall { name, args } = expr {
+                    if name == "println" && args.len() == 1 {
+                        let arg = &args[0];
+                        if let Expr::StringLiteral(s) = arg {
+                            let mut formatted = s.clone();
+                            formatted.push('\n');
+                            let global_str = self.builder.build_global_string_ptr(&formatted, "str").unwrap();
+                            self.builder.build_call(printf_func, &[global_str.as_pointer_value().into()], "printf_call").unwrap();
+                        } else if let Some(val) = self.generate_expr(arg, env) {
+                            let fmt = "%lld\n";
+                            let global_str = self.builder.build_global_string_ptr(fmt, "fmt").unwrap();
+                            self.builder.build_call(printf_func, &[global_str.as_pointer_value().into(), val.into()], "printf_call").unwrap();
+                        }
                     }
+                } else {
+                    self.generate_expr(expr, env);
                 }
             }
+            Stmt::VarDecl { name, is_mut: _, expr } => {
+                if let Some(val) = self.generate_expr(expr, env) {
+                    let alloca = self.builder.build_alloca(self.context.i64_type(), name).unwrap();
+                    self.builder.build_store(alloca, val).unwrap();
+                    env.insert(name.clone(), alloca);
+                }
+            }
+            Stmt::Assign { name, expr } => {
+                if let Some(ptr) = env.get(name) {
+                    if let Some(val) = self.generate_expr(expr, env) {
+                        self.builder.build_store(*ptr, val).unwrap();
+                    }
+                } else {
+                    panic!("Variable {} not found for assignment", name);
+                }
+            }
+        }
+    }
+
+    fn generate_expr(
+        &self,
+        expr: &Expr,
+        env: &HashMap<String, inkwell::values::PointerValue<'ctx>>,
+    ) -> Option<inkwell::values::BasicValueEnum<'ctx>> {
+        match expr {
+            Expr::IntLiteral(i) => Some(self.context.i64_type().const_int(*i as u64, false).into()),
+            Expr::StringLiteral(_) => None, // standalone strings do nothing for now
+            Expr::Identifier(name) => {
+                if let Some(ptr) = env.get(name) {
+                    let loaded = self.builder.build_load(self.context.i64_type(), *ptr, name).unwrap();
+                    Some(loaded)
+                } else {
+                    panic!("Variable {} not found in scope", name);
+                }
+            }
+            Expr::FunctionCall { .. } => None, // for now, func calls return nothing
         }
     }
 
