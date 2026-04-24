@@ -16,6 +16,10 @@ pub fn parser() -> impl Parser<Token, Program, Error = Simple<Token>> {
         let int_lit = select! {
             Token::IntLiteral(i) => Expr::IntLiteral(i),
         };
+        let bool_lit = choice((
+            just(Token::True).to(Expr::BoolLiteral(true)),
+            just(Token::False).to(Expr::BoolLiteral(false)),
+        ));
         let ident_expr = identifier.clone().map(Expr::Identifier);
 
         let args = expr.clone()
@@ -26,7 +30,81 @@ pub fn parser() -> impl Parser<Token, Program, Error = Simple<Token>> {
             .then(args)
             .map(|(name, args)| Expr::FunctionCall { name, args });
 
-        choice((func_call, string_lit, int_lit, ident_expr))
+        let atom = choice((
+            func_call,
+            string_lit,
+            int_lit,
+            bool_lit,
+            ident_expr,
+            expr.clone().delimited_by(just(Token::LParen), just(Token::RParen)),
+        ));
+
+        let unary = choice((
+            just(Token::Minus).to(ast::UnaryOp::Minus),
+            just(Token::Not).to(ast::UnaryOp::Not),
+        ))
+        .repeated()
+        .then(atom)
+        .foldr(|op, rhs| Expr::Unary {
+            op,
+            expr: Box::new(rhs),
+        });
+
+        let factor = unary.clone()
+            .then(choice((
+                just(Token::Star).to(ast::BinaryOp::Mul),
+                just(Token::Slash).to(ast::BinaryOp::Div),
+                just(Token::Percent).to(ast::BinaryOp::Mod),
+            )).then(unary).repeated())
+            .foldl(|lhs, (op, rhs)| Expr::Binary {
+                op,
+                left: Box::new(lhs),
+                right: Box::new(rhs),
+            });
+
+        let term = factor.clone()
+            .then(choice((
+                just(Token::Plus).to(ast::BinaryOp::Add),
+                just(Token::Minus).to(ast::BinaryOp::Sub),
+            )).then(factor).repeated())
+            .foldl(|lhs, (op, rhs)| Expr::Binary {
+                op,
+                left: Box::new(lhs),
+                right: Box::new(rhs),
+            });
+
+        let comparison = term.clone()
+            .then(choice((
+                just(Token::Eq).to(ast::BinaryOp::Eq),
+                just(Token::NotEq).to(ast::BinaryOp::NotEq),
+                just(Token::LtEq).to(ast::BinaryOp::LtEq),
+                just(Token::GtEq).to(ast::BinaryOp::GtEq),
+                just(Token::Lt).to(ast::BinaryOp::Lt),
+                just(Token::Gt).to(ast::BinaryOp::Gt),
+            )).then(term).repeated())
+            .foldl(|lhs, (op, rhs)| Expr::Binary {
+                op,
+                left: Box::new(lhs),
+                right: Box::new(rhs),
+            });
+
+        let logical_and = comparison.clone()
+            .then(just(Token::And).to(ast::BinaryOp::And).then(comparison).repeated())
+            .foldl(|lhs, (op, rhs)| Expr::Binary {
+                op,
+                left: Box::new(lhs),
+                right: Box::new(rhs),
+            });
+
+        let logical_or = logical_and.clone()
+            .then(just(Token::Or).to(ast::BinaryOp::Or).then(logical_and).repeated())
+            .foldl(|lhs, (op, rhs)| Expr::Binary {
+                op,
+                left: Box::new(lhs),
+                right: Box::new(rhs),
+            });
+
+        logical_or
     });
 
     let stmt = choice((

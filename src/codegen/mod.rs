@@ -54,7 +54,7 @@ impl<'ctx> CodeGen<'ctx> {
         &self,
         stmt: &Stmt,
         printf_func: inkwell::values::FunctionValue<'ctx>,
-        env: &mut HashMap<String, inkwell::values::PointerValue<'ctx>>,
+        env: &mut HashMap<String, (inkwell::types::BasicTypeEnum<'ctx>, inkwell::values::PointerValue<'ctx>)>,
     ) {
         match stmt {
             Stmt::ExprStmt(expr) => {
@@ -67,7 +67,11 @@ impl<'ctx> CodeGen<'ctx> {
                             let global_str = self.builder.build_global_string_ptr(&formatted, "str").unwrap();
                             self.builder.build_call(printf_func, &[global_str.as_pointer_value().into()], "printf_call").unwrap();
                         } else if let Some(val) = self.generate_expr(arg, env) {
-                            let fmt = "%lld\n";
+                            let fmt = if val.is_int_value() && val.into_int_value().get_type().get_bit_width() == 1 {
+                                "%d\n" // bool
+                            } else {
+                                "%lld\n" // i64
+                            };
                             let global_str = self.builder.build_global_string_ptr(fmt, "fmt").unwrap();
                             self.builder.build_call(printf_func, &[global_str.as_pointer_value().into(), val.into()], "printf_call").unwrap();
                         }
@@ -78,13 +82,13 @@ impl<'ctx> CodeGen<'ctx> {
             }
             Stmt::VarDecl { name, is_mut: _, expr } => {
                 if let Some(val) = self.generate_expr(expr, env) {
-                    let alloca = self.builder.build_alloca(self.context.i64_type(), name).unwrap();
+                    let alloca = self.builder.build_alloca(val.get_type(), name).unwrap();
                     self.builder.build_store(alloca, val).unwrap();
-                    env.insert(name.clone(), alloca);
+                    env.insert(name.clone(), (val.get_type(), alloca));
                 }
             }
             Stmt::Assign { name, expr } => {
-                if let Some(ptr) = env.get(name) {
+                if let Some((_, ptr)) = env.get(name) {
                     if let Some(val) = self.generate_expr(expr, env) {
                         self.builder.build_store(*ptr, val).unwrap();
                     }
@@ -98,18 +102,50 @@ impl<'ctx> CodeGen<'ctx> {
     fn generate_expr(
         &self,
         expr: &Expr,
-        env: &HashMap<String, inkwell::values::PointerValue<'ctx>>,
+        env: &HashMap<String, (inkwell::types::BasicTypeEnum<'ctx>, inkwell::values::PointerValue<'ctx>)>,
     ) -> Option<inkwell::values::BasicValueEnum<'ctx>> {
         match expr {
             Expr::IntLiteral(i) => Some(self.context.i64_type().const_int(*i as u64, false).into()),
+            Expr::BoolLiteral(b) => Some(self.context.bool_type().const_int(if *b { 1 } else { 0 }, false).into()),
             Expr::StringLiteral(_) => None, // standalone strings do nothing for now
             Expr::Identifier(name) => {
-                if let Some(ptr) = env.get(name) {
-                    let loaded = self.builder.build_load(self.context.i64_type(), *ptr, name).unwrap();
+                if let Some((typ, ptr)) = env.get(name) {
+                    let loaded = self.builder.build_load(*typ, *ptr, name).unwrap();
                     Some(loaded)
                 } else {
                     unreachable!("Sema should have caught undefined variable: {}", name);
                 }
+            }
+            Expr::Binary { op, left, right } => {
+                use crate::parse::ast::BinaryOp;
+                let l = self.generate_expr(left, env)?.into_int_value();
+                let r = self.generate_expr(right, env)?.into_int_value();
+                
+                let res = match op {
+                    BinaryOp::Add => self.builder.build_int_add(l, r, "addtmp").unwrap(),
+                    BinaryOp::Sub => self.builder.build_int_sub(l, r, "subtmp").unwrap(),
+                    BinaryOp::Mul => self.builder.build_int_mul(l, r, "multmp").unwrap(),
+                    BinaryOp::Div => self.builder.build_int_signed_div(l, r, "divtmp").unwrap(),
+                    BinaryOp::Mod => self.builder.build_int_signed_rem(l, r, "modtmp").unwrap(),
+                    BinaryOp::Eq => self.builder.build_int_compare(inkwell::IntPredicate::EQ, l, r, "eqtmp").unwrap(),
+                    BinaryOp::NotEq => self.builder.build_int_compare(inkwell::IntPredicate::NE, l, r, "neqtmp").unwrap(),
+                    BinaryOp::Lt => self.builder.build_int_compare(inkwell::IntPredicate::SLT, l, r, "lttmp").unwrap(),
+                    BinaryOp::LtEq => self.builder.build_int_compare(inkwell::IntPredicate::SLE, l, r, "ltetmp").unwrap(),
+                    BinaryOp::Gt => self.builder.build_int_compare(inkwell::IntPredicate::SGT, l, r, "gttmp").unwrap(),
+                    BinaryOp::GtEq => self.builder.build_int_compare(inkwell::IntPredicate::SGE, l, r, "gtetmp").unwrap(),
+                    BinaryOp::And => self.builder.build_and(l, r, "andtmp").unwrap(),
+                    BinaryOp::Or => self.builder.build_or(l, r, "ortmp").unwrap(),
+                };
+                Some(res.into())
+            }
+            Expr::Unary { op, expr } => {
+                use crate::parse::ast::UnaryOp;
+                let val = self.generate_expr(expr, env)?.into_int_value();
+                let res = match op {
+                    UnaryOp::Minus => self.builder.build_int_neg(val, "negtmp").unwrap(),
+                    UnaryOp::Not => self.builder.build_not(val, "nottmp").unwrap(),
+                };
+                Some(res.into())
             }
             Expr::FunctionCall { .. } => None, // for now, func calls return nothing
         }

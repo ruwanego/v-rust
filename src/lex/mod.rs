@@ -30,8 +30,56 @@ pub enum Token {
     #[token(":=")]
     DeclAssign,
 
+    #[token("==")]
+    Eq,
+
+    #[token("!=")]
+    NotEq,
+
+    #[token("<=")]
+    LtEq,
+
+    #[token(">=")]
+    GtEq,
+
+    #[token("<")]
+    Lt,
+
+    #[token(">")]
+    Gt,
+
     #[token("=")]
     Assign,
+
+    #[token("+")]
+    Plus,
+
+    #[token("-")]
+    Minus,
+
+    #[token("*")]
+    Star,
+
+    #[token("/")]
+    Slash,
+
+    #[token("%")]
+    Percent,
+
+    #[token("&&")]
+    And,
+
+    #[token("||")]
+    Or,
+
+    #[token("!")]
+    Not,
+
+    #[token("true")]
+    True,
+
+    #[token("false")]
+    False,
 
     #[regex(r#"'[^']*'"#, |lex| lex.slice()[1..lex.slice().len()-1].to_string())]
     #[regex(r#""[^"]*""#, |lex| lex.slice()[1..lex.slice().len()-1].to_string())]
