@@ -3,6 +3,9 @@ default: ci
 fmt:
     cargo fmt --all -- --check
 
+check:
+    cargo check --locked --all-targets --all-features
+
 lint:
     cargo clippy --locked --all-targets --all-features -- -D warnings
 
@@ -28,4 +31,16 @@ vlib-full *args:
 official-full *args:
     cargo test --locked --test official_suite --all-features {{args}}
 
-ci: fmt lint green
+vlib-progress *args:
+    -cargo test --locked --test vlib_suite --all-features {{args}}
+
+official-progress *args:
+    -cargo test --locked --test official_suite --all-features {{args}}
+
+pr-fast: fmt check lint green
+
+heavy-progress: vlib-progress official-progress
+
+merge-queue-heavy: pr-fast heavy-progress
+
+ci: pr-fast

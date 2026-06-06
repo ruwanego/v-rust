@@ -4,16 +4,17 @@ on:
   push:
   pull_request:
     branches: [ "master", "main" ]
+  merge_group:
   workflow_dispatch:
 
 jobs:
-  test:
+  pr-fast:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
 
-      - name: Build Docker image and run green guardrails
-        run: docker compose run --rm app just ci
+      - name: Build Docker image and run PR fast-path guardrails
+        run: docker compose run --rm app just pr-fast
 
       - name: Run vlib suite progress log
         continue-on-error: true
