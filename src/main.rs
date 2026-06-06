@@ -1,26 +1,9 @@
 #![forbid(unsafe_code)]
-#![deny(warnings)]
-#![deny(clippy::all)]
-#![deny(clippy::pedantic)]
-#![allow(
-    clippy::result_large_err,
-    clippy::too_many_lines,
-    clippy::missing_errors_doc,
-    clippy::items_after_statements,
-    clippy::match_same_arms,
-    clippy::cast_sign_loss,
-    clippy::manual_let_else
-)]
 
 use clap::Parser;
 use std::path::PathBuf;
 use std::process::exit;
-
-#[cfg(feature = "codegen")]
-pub mod codegen;
-pub mod lex;
-pub mod parse;
-pub mod sema;
+use v_rust::{lex, parse, sema};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about = "V Compiler written in Rust", long_about = None)]
@@ -79,7 +62,7 @@ fn main() {
         use inkwell::context::Context;
 
         let context = Context::create();
-        let codegen = codegen::CodeGen::new(&context, "v_module");
+        let codegen = v_rust::codegen::CodeGen::new(&context, "v_module");
         codegen.generate(&program);
 
         let obj_path = std::env::temp_dir().join("output.o");
