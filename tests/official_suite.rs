@@ -9,9 +9,8 @@ fn main() {
 
     ensure_official_repo(&repo_dir);
 
-    let tests = vec![Trial::test("official v test semantics", move || {
-        run_official_v_tests(&repo_dir)
-    })];
+    let tests =
+        vec![Trial::test("official v test semantics", move || run_official_v_tests(&repo_dir))];
     libtest_mimic::run(&args, tests).exit();
 }
 
@@ -22,13 +21,7 @@ fn ensure_official_repo(repo_dir: &Path) {
 
     println!("Downloading official V tests (RED GREEN REFACTOR)...");
     let status = StdCommand::new("git")
-        .args([
-            "clone",
-            "--depth",
-            "1",
-            "https://github.com/vlang/v",
-            repo_dir.to_str().unwrap(),
-        ])
+        .args(["clone", "--depth", "1", "https://github.com/vlang/v", repo_dir.to_str().unwrap()])
         .status()
         .expect("Failed to clone official V repository");
 
