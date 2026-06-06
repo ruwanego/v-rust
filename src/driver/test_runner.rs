@@ -6,11 +6,7 @@ use walkdir::WalkDir;
 
 pub(super) fn run(paths: &[PathBuf]) -> Result<(), String> {
     let default_paths = [PathBuf::from(".")];
-    let paths = if paths.is_empty() {
-        default_paths.as_slice()
-    } else {
-        paths
-    };
+    let paths = if paths.is_empty() { default_paths.as_slice() } else { paths };
     let test_files = discover_test_files(paths)?;
 
     if test_files.is_empty() {
@@ -31,11 +27,7 @@ pub(super) fn run(paths: &[PathBuf]) -> Result<(), String> {
             Ok(()) => println!("[{ordinal}/{total}] PASS {test_name}"),
             Err(err) => {
                 eprintln!("[{ordinal}/{total}] FAIL {test_name}");
-                failures.push(TestFailure {
-                    ordinal,
-                    path: test_file.clone(),
-                    message: err,
-                });
+                failures.push(TestFailure { ordinal, path: test_file.clone(), message: err });
             }
         }
     }
@@ -109,10 +101,7 @@ fn discover_test_files(paths: &[PathBuf]) -> Result<Vec<PathBuf>, String> {
 
 fn is_v_test_file(path: &Path) -> bool {
     path.extension().and_then(OsStr::to_str) == Some("v")
-        && path
-            .file_name()
-            .and_then(OsStr::to_str)
-            .is_some_and(|name| name.ends_with("_test.v"))
+        && path.file_name().and_then(OsStr::to_str).is_some_and(|name| name.ends_with("_test.v"))
 }
 
 fn is_testdata_dir(path: &Path) -> bool {
@@ -120,16 +109,13 @@ fn is_testdata_dir(path: &Path) -> bool {
 }
 
 fn is_under_testdata(path: &Path) -> bool {
-    path.components()
-        .any(|component| component.as_os_str() == OsStr::new("testdata"))
+    path.components().any(|component| component.as_os_str() == OsStr::new("testdata"))
 }
 
 fn run_test_file(test_file: &Path) -> Result<(), String> {
     let temp_dir =
         tempfile::tempdir().map_err(|e| format!("Failed to create test temp dir: {e}"))?;
-    let test_binary = temp_dir
-        .path()
-        .join(format!("test_bin{}", std::env::consts::EXE_SUFFIX));
+    let test_binary = temp_dir.path().join(format!("test_bin{}", std::env::consts::EXE_SUFFIX));
 
     compile_file(test_file, &test_binary).map_err(|e| format!("Compilation failed:\n{e}"))?;
 
