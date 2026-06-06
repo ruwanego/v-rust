@@ -72,22 +72,12 @@ pub fn compile_file(input: &Path, output: &Path) -> Result<(), String> {
 
 #[cfg(feature = "codegen")]
 fn link_object(obj_path: &Path, output: &Path) -> Result<Output, String> {
-    let configured_linker = env::var("CLANG")
-        .ok()
-        .filter(|value| !value.trim().is_empty());
-    let candidates = configured_linker
-        .iter()
-        .map(String::as_str)
-        .chain(["clang", "clang-15"]);
+    let configured_linker = env::var("CLANG").ok().filter(|value| !value.trim().is_empty());
+    let candidates = configured_linker.iter().map(String::as_str).chain(["clang", "clang-15"]);
     let mut missing_linkers = Vec::new();
 
     for linker in candidates {
-        match ProcessCommand::new(linker)
-            .arg(obj_path)
-            .arg("-o")
-            .arg(output)
-            .output()
-        {
+        match ProcessCommand::new(linker).arg(obj_path).arg("-o").arg(output).output() {
             Ok(output) => return Ok(output),
             Err(error) if error.kind() == ErrorKind::NotFound => {
                 missing_linkers.push(linker.to_string());
@@ -98,8 +88,5 @@ fn link_object(obj_path: &Path, output: &Path) -> Result<Output, String> {
         }
     }
 
-    Err(format!(
-        "Failed to execute linker. Tried: {}",
-        missing_linkers.join(", ")
-    ))
+    Err(format!("Failed to execute linker. Tried: {}", missing_linkers.join(", ")))
 }
