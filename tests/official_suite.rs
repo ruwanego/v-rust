@@ -26,7 +26,7 @@ fn main() {
     let test_dirs = vec![repo_dir.join("vlib"), repo_dir.join("cmd/v/tests")];
 
     for dir in test_dirs {
-        for entry in WalkDir::new(dir).into_iter().filter_map(|e| e.ok()) {
+        for entry in WalkDir::new(dir).into_iter().filter_map(Result::ok) {
             let path = entry.path();
             if path.extension().and_then(|s| s.to_str()) == Some("v")
                 && path.file_name().unwrap().to_str().unwrap().ends_with("_test.v")
