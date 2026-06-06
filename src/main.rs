@@ -134,13 +134,26 @@ fn run_test_command(args: &TestArgs) -> Result<(), String> {
         return Ok(());
     }
 
-    println!("Running {} V _test.v file(s)", test_files.len());
+    let total = test_files.len();
+    println!("Running {total} V _test.v file(s)");
 
     let mut failures = Vec::new();
-    for test_file in &test_files {
+    for (index, test_file) in test_files.iter().enumerate() {
+        let ordinal = index + 1;
+        let test_name = test_file.display();
+        println!("[{ordinal}/{total}] RUN {test_name}");
+
         match run_test_file(test_file) {
-            Ok(()) => println!("ok {}", test_file.display()),
-            Err(err) => failures.push(TestFailure { path: test_file.clone(), message: err }),
+            Ok(()) => println!("[{ordinal}/{total}] PASS {test_name}"),
+            Err(err) => {
+                eprintln!("[{ordinal}/{total}] FAIL {test_name}");
+                failures.push(TestFailure {
+                    ordinal,
+                    total,
+                    path: test_file.clone(),
+                    message: err,
+                });
+            }
         }
     }
 
@@ -153,8 +166,20 @@ fn run_test_command(args: &TestArgs) -> Result<(), String> {
         return Ok(());
     }
 
+    eprintln!("Failed V _test.v files in run order:");
     for failure in &failures {
-        eprintln!("---- {} ----", failure.path.display());
+        let ordinal = failure.ordinal;
+        let total = failure.total;
+        let test_name = failure.path.display();
+        eprintln!("[{ordinal}/{total}] {test_name}");
+    }
+    eprintln!();
+
+    for failure in &failures {
+        let ordinal = failure.ordinal;
+        let total = failure.total;
+        let test_name = failure.path.display();
+        eprintln!("---- [{ordinal}/{total}] {test_name} ----");
         eprintln!("{}", failure.message.trim_end());
     }
 
@@ -168,6 +193,8 @@ fn run_test_command(args: &TestArgs) -> Result<(), String> {
 
 #[derive(Debug)]
 struct TestFailure {
+    ordinal: usize,
+    total: usize,
     path: PathBuf,
     message: String,
 }
