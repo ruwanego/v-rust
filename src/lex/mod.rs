@@ -1,7 +1,10 @@
 use logos::Logos;
+use std::ops::Range;
+use std::path::Path;
 
 #[derive(Logos, Debug, PartialEq, Eq, Hash, Clone)]
-#[logos(skip r"[ \t\n\f]+")]
+#[logos(skip r"[ \t\r\n\f]+")]
+#[logos(skip r"//[^\r\n]*")]
 pub enum Token {
     #[token("fn")]
     Fn,
@@ -87,6 +90,61 @@ pub enum Token {
 
     #[regex("[0-9]+", |lex| lex.slice().parse().ok())]
     IntLiteral(i64),
+}
+
+pub fn tokenize(source: &str, input: &Path) -> Result<Vec<Token>, String> {
+    Token::lexer(source)
+        .spanned()
+        .map(|(token, span)| {
+            token.map_err(|()| {
+                let (line, column) = line_column(source, span.start);
+                let unexpected = unexpected_character(source, &span);
+                format!(
+                    "Lex error at {}:{line}:{column}: unexpected character {}",
+                    input.display(),
+                    format_character(unexpected)
+                )
+            })
+        })
+        .collect()
+}
+
+fn line_column(source: &str, offset: usize) -> (usize, usize) {
+    let mut line = 1;
+    let mut line_start = 0;
+
+    for (index, character) in source.char_indices() {
+        if index >= offset {
+            break;
+        }
+
+        if character == '\n' {
+            line += 1;
+            line_start = index + character.len_utf8();
+        }
+    }
+
+    let column = source
+        .get(line_start..offset)
+        .map_or(1, |line| line.chars().count() + 1);
+    (line, column)
+}
+
+fn unexpected_character(source: &str, span: &Range<usize>) -> char {
+    source
+        .get(span.clone())
+        .and_then(|slice| slice.chars().next())
+        .unwrap_or('\0')
+}
+
+fn format_character(character: char) -> String {
+    match character {
+        '\0' => "end of file".to_string(),
+        '\n' => "'\\n'".to_string(),
+        '\r' => "'\\r'".to_string(),
+        '\t' => "'\\t'".to_string(),
+        other => format!("'{other}'"),
+    }
 }
 
 #[cfg(test)]

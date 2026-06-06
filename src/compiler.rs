@@ -17,10 +17,7 @@ pub fn compile_file(input: &Path, output: &Path) -> Result<(), String> {
     let source_code =
         std::fs::read_to_string(input).map_err(|e| format!("Error reading file: {e}"))?;
 
-    let tokens: Result<Vec<_>, _> = <lex::Token as logos::Logos>::lexer(&source_code).collect();
-    let Ok(tokens) = tokens else {
-        return Err("Lexer error".to_string());
-    };
+    let tokens = lex::tokenize(&source_code, input)?;
 
     let program = match chumsky::Parser::parse(&parse::parser(), tokens) {
         Ok(p) => p,
