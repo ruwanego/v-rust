@@ -1,1 +1,4 @@
 /target
+
+# ignore downloaded V repo
+tests/v_official_repo/

@@ -10,6 +10,9 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     build-essential \
     git \
+    libpolly-15-dev \
+    libzstd-dev \
+    zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set up environment variables to point LLVM-sys to the correct installation
