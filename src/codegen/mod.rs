@@ -1,4 +1,4 @@
-use crate::parse::ast::{Expr, Program, Stmt};
+use frontend::parse::ast::{Expr, Program, Stmt};
 use inkwell::context::Context;
 use inkwell::module::Module;
 use inkwell::targets::{
@@ -140,7 +140,7 @@ impl<'ctx> CodeGen<'ctx> {
                 }
             }
             Expr::Binary { op, left, right } => {
-                use crate::parse::ast::BinaryOp;
+                use frontend::parse::ast::BinaryOp;
                 let l = self.generate_expr(left, env)?.into_int_value();
                 let r = self.generate_expr(right, env)?.into_int_value();
 
@@ -180,7 +180,7 @@ impl<'ctx> CodeGen<'ctx> {
                 Some(res.into())
             }
             Expr::Unary { op, expr } => {
-                use crate::parse::ast::UnaryOp;
+                use frontend::parse::ast::UnaryOp;
                 let val = self.generate_expr(expr, env)?.into_int_value();
                 let res = match op {
                     UnaryOp::Minus => self.builder.build_int_neg(val, "negtmp").unwrap(),

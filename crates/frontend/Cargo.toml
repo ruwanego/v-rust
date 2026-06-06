@@ -1,0 +1,23 @@
+[package]
+name = "frontend"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+logos = "0.14"
+chumsky = "0.9"
+
+[lints.rust]
+unsafe_code = "forbid"
+warnings = "deny"
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+cast_sign_loss = "allow"
+items_after_statements = "allow"
+manual_let_else = "allow"
+match_same_arms = "allow"
+missing_errors_doc = "allow"
+result_large_err = "allow"
+too_many_lines = "allow"

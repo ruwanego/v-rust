@@ -1,4 +1,4 @@
-use crate::{lex, parse, sema};
+use frontend::{lex, sema};
 use std::fmt::Write as _;
 use std::path::Path;
 
@@ -19,10 +19,7 @@ pub fn compile_file(input: &Path, output: &Path) -> Result<(), String> {
 
     let tokens = lex::tokenize(&source_code, input)?;
 
-    let program = match chumsky::Parser::parse(&parse::parser(), tokens) {
-        Ok(p) => p,
-        Err(e) => return Err(format!("Parser error: {e:?}")),
-    };
+    let program = frontend::parse_tokens(tokens)?;
 
     let mut analyzer = sema::SemanticAnalyzer::new();
     if let Err(errors) = analyzer.analyze(&program) {

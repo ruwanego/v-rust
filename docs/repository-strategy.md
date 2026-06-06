@@ -96,27 +96,29 @@ Rules:
 
 ## Current State
 
-The repository is currently a single Cargo package with:
+The repository is currently a Cargo workspace with:
 
-1. Frontend modules in `src/lex`, `src/parse`, and `src/sema`.
-2. LLVM/Inkwell code generation in `src/codegen`.
-3. CLI and test harness modules in `src/driver`.
+1. Frontend modules in `crates/frontend/src/lex`,
+   `crates/frontend/src/parse`, and `crates/frontend/src/sema`.
+2. LLVM/Inkwell code generation still in the root package at `src/codegen`.
+3. CLI and test harness modules still in the root package at `src/driver`.
 
-The migration to the target workspace must happen as short, reviewable trunk
-branches. Do not combine the workspace split, Cranelift backend, LLVM backend
-extraction, and snapshot testing in one pull request.
+The migration to the target workspace must continue as short, reviewable trunk
+branches. Do not combine the frontend split, backend trait extraction,
+Cranelift backend, LLVM backend extraction, and snapshot testing in one pull
+request.
 
 ## Migration Order
 
-1. Move `src/lex`, `src/parse`, and `src/sema` into `crates/frontend`.
-2. Move shared AST/frontend diagnostics with the frontend crate.
-3. Add `crates/codegen_traits` with a minimal backend trait.
-4. Move the current Inkwell implementation into `crates/codegen_llvm`.
-5. Move `src/driver` and `src/main.rs` into `crates/driver`.
-6. Add `crates/codegen_cranelift` with the smallest executable backend.
-7. Change PR fast-path tests to use Cranelift only.
-8. Add IR snapshot tests with `insta`.
-9. Promote LLVM optimized checks to the merge queue heavy path.
+1. Done: move `src/lex`, `src/parse`, and `src/sema` into
+   `crates/frontend`.
+2. Next: add `crates/codegen_traits` with a minimal backend trait.
+3. Move the current Inkwell implementation into `crates/codegen_llvm`.
+4. Move `src/driver` and `src/main.rs` into `crates/driver`.
+5. Add `crates/codegen_cranelift` with the smallest executable backend.
+6. Change PR fast-path tests to use Cranelift only.
+7. Add IR snapshot tests with `insta`.
+8. Promote LLVM optimized checks to the merge queue heavy path.
 
 Each migration PR must preserve the TDD guardrail shape:
 
