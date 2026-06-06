@@ -42,9 +42,7 @@ fn fixture_name(kind: &str, fixture: &Path) -> String {
 
 fn run_pass_fixture(fixture: &Path) -> Result<(), Failed> {
     let temp_dir = tempfile::tempdir().map_err(|e| format!("failed to create temp dir: {e}"))?;
-    let binary = temp_dir
-        .path()
-        .join(format!("fixture{}", std::env::consts::EXE_SUFFIX));
+    let binary = temp_dir.path().join(format!("fixture{}", std::env::consts::EXE_SUFFIX));
 
     let compile_output = common::v_rust_command()
         .arg(fixture)
@@ -86,11 +84,9 @@ fn run_fail_fixture(fixture: &Path) -> Result<(), Failed> {
     let output = common::v_rust_command().arg(fixture).output().unwrap();
 
     if output.status.success() {
-        return Err(format!(
-            "fixture {} compiled successfully but should fail",
-            fixture.display()
-        )
-        .into());
+        return Err(
+            format!("fixture {} compiled successfully but should fail", fixture.display()).into()
+        );
     }
 
     let expected_error = fs::read_to_string(fixture.with_extension("stderr"))

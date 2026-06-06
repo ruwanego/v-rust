@@ -43,9 +43,7 @@ fn read_subset_manifest(manifest: &Path) -> Vec<PathBuf> {
 
 fn run_subset_case(test_path: &Path) -> Result<(), Failed> {
     if !test_path.exists() {
-        return Err(
-            format!("official subset path does not exist: {}", test_path.display()).into()
-        );
+        return Err(format!("official subset path does not exist: {}", test_path.display()).into());
     }
 
     common::run_v_rust_test(test_path)
