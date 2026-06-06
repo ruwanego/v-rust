@@ -124,17 +124,12 @@ fn line_column(source: &str, offset: usize) -> (usize, usize) {
         }
     }
 
-    let column = source
-        .get(line_start..offset)
-        .map_or(1, |line| line.chars().count() + 1);
+    let column = source.get(line_start..offset).map_or(1, |line| line.chars().count() + 1);
     (line, column)
 }
 
 fn unexpected_character(source: &str, span: &Range<usize>) -> char {
-    source
-        .get(span.clone())
-        .and_then(|slice| slice.chars().next())
-        .unwrap_or('\0')
+    source.get(span.clone()).and_then(|slice| slice.chars().next()).unwrap_or('\0')
 }
 
 fn format_character(character: char) -> String {
