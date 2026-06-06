@@ -30,12 +30,7 @@ fn ensure_official_repo(repo_dir: &Path) {
 
 fn run_official_v_tests(repo_dir: &Path) -> Result<(), libtest_mimic::Failed> {
     let mut compiler_cmd = Command::cargo_bin("v-rust").unwrap();
-    let output = compiler_cmd
-        .arg("test")
-        .arg(repo_dir.join("vlib"))
-        .arg(repo_dir.join("cmd/v/tests"))
-        .output()
-        .unwrap();
+    let output = compiler_cmd.arg("test").arg(repo_dir).output().unwrap();
 
     if output.status.success() {
         return Ok(());
