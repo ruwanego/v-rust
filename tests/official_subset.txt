@@ -1,0 +1,7 @@
+# Add official V `_test.v` paths here only after the same behavior is green in:
+# 1. Rust unit tests
+# 2. tiny V fixture tests
+#
+# Paths are relative to the cloned official V repository root at tests/v_official_repo.
+# Example:
+# vlib/v/tests/some_feature_test.v

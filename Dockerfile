@@ -10,11 +10,16 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     build-essential \
     git \
+    libzstd-dev \
+    zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set up environment variables to point LLVM-sys to the correct installation
 # On Linux, llvm-config-15 is used to determine paths for llvm-sys
 ENV LLVM_SYS_150_PREFIX=/usr/lib/llvm-15
+
+RUN rustup component add rustfmt clippy \
+    && cargo install just --locked --version 1.51.0
 
 # Create and set the working directory
 WORKDIR /usr/src/v-rust
@@ -22,6 +27,5 @@ WORKDIR /usr/src/v-rust
 # Copy the local project into the container
 COPY . .
 
-# Run the tests as the default command
-# We use --release because building V tests can be slow otherwise
-CMD ["cargo", "test", "--test", "official_suite", "--release"]
+# Run the same guardrail workflow locally and in CI.
+CMD ["just", "ci"]

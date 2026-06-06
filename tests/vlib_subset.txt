@@ -1,0 +1,8 @@
+# Add official V `vlib` `_test.v` paths here only after the same behavior is green in:
+# 1. Rust unit tests
+# 2. tiny V fixture tests
+# 3. official subset tests where relevant
+#
+# Paths are relative to tests/v_official_repo/vlib.
+# Example:
+# math/some_feature_test.v

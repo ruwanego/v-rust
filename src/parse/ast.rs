@@ -12,15 +12,8 @@ pub struct FunctionDecl {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
     ExprStmt(Expr),
-    VarDecl {
-        name: String,
-        is_mut: bool,
-        expr: Expr,
-    },
-    Assign {
-        name: String,
-        expr: Expr,
-    },
+    VarDecl { name: String, is_mut: bool, expr: Expr },
+    Assign { name: String, expr: Expr },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -53,13 +46,6 @@ pub enum Expr {
     BoolLiteral(bool),
     Identifier(String),
     FunctionCall { name: String, args: Vec<Expr> },
-    Binary {
-        op: BinaryOp,
-        left: Box<Expr>,
-        right: Box<Expr>,
-    },
-    Unary {
-        op: UnaryOp,
-        expr: Box<Expr>,
-    },
+    Binary { op: BinaryOp, left: Box<Expr>, right: Box<Expr> },
+    Unary { op: UnaryOp, expr: Box<Expr> },
 }

@@ -2,15 +2,24 @@ name: CI
 
 on:
   push:
-    branches: [ "master", "main" ]
   pull_request:
     branches: [ "master", "main" ]
+  merge_group:
+  workflow_dispatch:
 
 jobs:
-  test:
+  pr-fast:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - name: Build Docker image and run tests
-        run: docker compose run app cargo test
+      - name: Build Docker image and run PR fast-path guardrails
+        run: docker compose run --rm app just pr-fast
+
+      - name: Run vlib suite progress log
+        continue-on-error: true
+        run: docker compose run --rm app just vlib-full -- --nocapture
+
+      - name: Run full official suite progress log
+        continue-on-error: true
+        run: docker compose run --rm app just official-full -- --nocapture
