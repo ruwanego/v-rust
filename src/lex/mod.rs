@@ -115,4 +115,23 @@ mod tests {
         assert_eq!(lex.next(), Some(Ok(Token::RBrace)));
         assert_eq!(lex.next(), None);
     }
+
+    #[test]
+    fn skips_line_comments() {
+        let tokens: Vec<_> = Token::lexer("// ignored\nfn main() {\n    // ignored too\n}")
+            .map(Result::unwrap)
+            .collect();
+
+        assert_eq!(
+            tokens,
+            vec![
+                Token::Fn,
+                Token::Identifier("main".to_string()),
+                Token::LParen,
+                Token::RParen,
+                Token::LBrace,
+                Token::RBrace,
+            ]
+        );
+    }
 }
