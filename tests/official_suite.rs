@@ -29,12 +29,7 @@ fn main() {
         for entry in WalkDir::new(dir).into_iter().filter_map(|e| e.ok()) {
             let path = entry.path();
             if path.extension().and_then(|s| s.to_str()) == Some("v")
-                && path
-                    .file_name()
-                    .unwrap()
-                    .to_str()
-                    .unwrap()
-                    .ends_with("_test.v")
+                && path.file_name().unwrap().to_str().unwrap().ends_with("_test.v")
             {
                 let test_name = path.strip_prefix(&repo_dir).unwrap().display().to_string();
                 let path_clone = path.to_path_buf();

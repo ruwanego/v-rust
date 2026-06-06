@@ -15,11 +15,16 @@ pub struct VarInfo {
     pub typ: String,
 }
 
+impl Default for SemanticAnalyzer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SemanticAnalyzer {
+    #[must_use]
     pub fn new() -> Self {
-        SemanticAnalyzer {
-            variables: HashMap::new(),
-        }
+        SemanticAnalyzer { variables: HashMap::new() }
     }
 
     pub fn analyze(&mut self, program: &Program) -> Result<(), Vec<SemaError>> {
@@ -52,21 +57,18 @@ impl SemanticAnalyzer {
             Stmt::VarDecl { name, is_mut, expr } => {
                 if self.variables.contains_key(name) {
                     return Err(SemaError {
-                        message: format!("Variable '{}' is already declared (shadowing is not allowed in V).", name),
+                        message: format!("Variable '{name}' is already declared (shadowing is not allowed in V)."),
                     });
                 }
                 let typ = self.analyze_expr(expr)?;
-                self.variables.insert(name.clone(), VarInfo {
-                    is_mut: *is_mut,
-                    typ,
-                });
+                self.variables.insert(name.clone(), VarInfo { is_mut: *is_mut, typ });
                 Ok(())
             }
             Stmt::Assign { name, expr } => {
                 if let Some(var_info) = self.variables.get(name) {
                     if !var_info.is_mut {
                         return Err(SemaError {
-                            message: format!("Variable '{}' is immutable. Declare it with `mut {} := ...` to assign to it.", name, name),
+                            message: format!("Variable '{name}' is immutable. Declare it with `mut {name} := ...` to assign to it."),
                         });
                     }
                     let typ = self.analyze_expr(expr)?;
@@ -77,7 +79,7 @@ impl SemanticAnalyzer {
                     }
                 } else {
                     return Err(SemaError {
-                        message: format!("Variable '{}' is not declared.", name),
+                        message: format!("Variable '{name}' is not declared."),
                     });
                 }
                 Ok(())
@@ -94,9 +96,7 @@ impl SemanticAnalyzer {
                 if let Some(var_info) = self.variables.get(name) {
                     Ok(var_info.typ.clone())
                 } else {
-                    Err(SemaError {
-                        message: format!("Variable '{}' is not declared.", name),
-                    })
+                    Err(SemaError { message: format!("Variable '{name}' is not declared.") })
                 }
             }
             Expr::FunctionCall { name, args } => {
@@ -106,9 +106,7 @@ impl SemanticAnalyzer {
                     }
                     Ok("void".to_string())
                 } else {
-                    Err(SemaError {
-                        message: format!("Unknown function '{}'.", name),
-                    })
+                    Err(SemaError { message: format!("Unknown function '{name}'.") })
                 }
             }
             Expr::Binary { op, left, right } => {
@@ -118,10 +116,14 @@ impl SemanticAnalyzer {
                 use crate::parse::ast::BinaryOp;
 
                 match op {
-                    BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div | BinaryOp::Mod => {
+                    BinaryOp::Add
+                    | BinaryOp::Sub
+                    | BinaryOp::Mul
+                    | BinaryOp::Div
+                    | BinaryOp::Mod => {
                         if left_type != "i64" || right_type != "i64" {
                             return Err(SemaError {
-                                message: format!("Arithmetic operator {:?} requires both sides to be integers. Found {} and {}", op, left_type, right_type),
+                                message: format!("Arithmetic operator {op:?} requires both sides to be integers. Found {left_type} and {right_type}"),
                             });
                         }
                         Ok("i64".to_string())
@@ -129,7 +131,7 @@ impl SemanticAnalyzer {
                     BinaryOp::Eq | BinaryOp::NotEq => {
                         if left_type != right_type {
                             return Err(SemaError {
-                                message: format!("Relational operator {:?} requires both sides to be of the same type. Found {} and {}", op, left_type, right_type),
+                                message: format!("Relational operator {op:?} requires both sides to be of the same type. Found {left_type} and {right_type}"),
                             });
                         }
                         Ok("bool".to_string())
@@ -137,7 +139,7 @@ impl SemanticAnalyzer {
                     BinaryOp::Lt | BinaryOp::LtEq | BinaryOp::Gt | BinaryOp::GtEq => {
                         if left_type != "i64" || right_type != "i64" {
                             return Err(SemaError {
-                                message: format!("Relational operator {:?} requires both sides to be integers. Found {} and {}", op, left_type, right_type),
+                                message: format!("Relational operator {op:?} requires both sides to be integers. Found {left_type} and {right_type}"),
                             });
                         }
                         Ok("bool".to_string())
@@ -145,7 +147,7 @@ impl SemanticAnalyzer {
                     BinaryOp::And | BinaryOp::Or => {
                         if left_type != "bool" || right_type != "bool" {
                             return Err(SemaError {
-                                message: format!("Logical operator {:?} requires both sides to be booleans. Found {} and {}", op, left_type, right_type),
+                                message: format!("Logical operator {op:?} requires both sides to be booleans. Found {left_type} and {right_type}"),
                             });
                         }
                         Ok("bool".to_string())
@@ -159,7 +161,9 @@ impl SemanticAnalyzer {
                     UnaryOp::Minus => {
                         if expr_type != "i64" {
                             return Err(SemaError {
-                                message: format!("Unary minus requires an integer. Found {}", expr_type),
+                                message: format!(
+                                    "Unary minus requires an integer. Found {expr_type}"
+                                ),
                             });
                         }
                         Ok("i64".to_string())
@@ -167,7 +171,9 @@ impl SemanticAnalyzer {
                     UnaryOp::Not => {
                         if expr_type != "bool" {
                             return Err(SemaError {
-                                message: format!("Logical NOT requires a boolean. Found {}", expr_type),
+                                message: format!(
+                                    "Logical NOT requires a boolean. Found {expr_type}"
+                                ),
                             });
                         }
                         Ok("bool".to_string())

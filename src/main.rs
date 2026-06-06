@@ -1,12 +1,26 @@
+#![forbid(unsafe_code)]
+#![deny(warnings)]
+#![deny(clippy::all)]
+#![deny(clippy::pedantic)]
+#![allow(
+    clippy::result_large_err,
+    clippy::too_many_lines,
+    clippy::missing_errors_doc,
+    clippy::items_after_statements,
+    clippy::match_same_arms,
+    clippy::cast_sign_loss,
+    clippy::manual_let_else
+)]
+
 use clap::Parser;
 use std::path::PathBuf;
 use std::process::exit;
 
+#[cfg(feature = "codegen")]
+pub mod codegen;
 pub mod lex;
 pub mod parse;
 pub mod sema;
-#[cfg(feature = "codegen")]
-pub mod codegen;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about = "V Compiler written in Rust", long_about = None)]
@@ -31,26 +45,21 @@ fn main() {
 
     // 1. Lex
     let source_code = std::fs::read_to_string(&args.input).unwrap_or_else(|e| {
-        eprintln!("Error reading file: {}", e);
+        eprintln!("Error reading file: {e}");
         exit(1);
     });
 
-    use logos::Logos;
-    let tokens: Result<Vec<_>, _> = lex::Token::lexer(&source_code).collect();
-    let tokens = match tokens {
-        Ok(t) => t,
-        Err(_) => {
-            eprintln!("Lexer error");
-            exit(1);
-        }
+    let tokens: Result<Vec<_>, _> = <lex::Token as logos::Logos>::lexer(&source_code).collect();
+    let Ok(tokens) = tokens else {
+        eprintln!("Lexer error");
+        exit(1);
     };
 
     // 2. Parse
-    use chumsky::Parser;
-    let program = match parse::parser().parse(tokens) {
+    let program = match chumsky::Parser::parse(&parse::parser(), tokens) {
         Ok(p) => p,
         Err(e) => {
-            eprintln!("Parser error: {:?}", e);
+            eprintln!("Parser error: {e:?}");
             exit(1);
         }
     };
@@ -75,7 +84,7 @@ fn main() {
 
         let obj_path = std::env::temp_dir().join("output.o");
         if let Err(e) = codegen.write_obj(&obj_path) {
-            eprintln!("Codegen error: {}", e);
+            eprintln!("Codegen error: {e}");
             exit(1);
         }
 
@@ -86,15 +95,12 @@ fn main() {
             .arg(args.output.to_str().unwrap())
             .output()
             .unwrap_or_else(|e| {
-                eprintln!("Failed to execute linker: {}", e);
+                eprintln!("Failed to execute linker: {e}");
                 exit(1);
             });
 
         if !output.status.success() {
-            eprintln!(
-                "Linker failed:\n{}",
-                String::from_utf8_lossy(&output.stderr)
-            );
+            eprintln!("Linker failed:\n{}", String::from_utf8_lossy(&output.stderr));
             exit(1);
         }
     }
