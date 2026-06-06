@@ -43,5 +43,13 @@ name = "official_subset"
 harness = false
 
 [[test]]
+name = "vlib_subset"
+harness = false
+
+[[test]]
+name = "vlib_suite"
+harness = false
+
+[[test]]
 name = "official_suite"
 harness = false

@@ -1,4 +1,4 @@
-mod common;
+mod tiny_common;
 
 use libtest_mimic::{Arguments, Failed, Trial};
 use std::fs;
@@ -45,7 +45,7 @@ fn run_pass_fixture(fixture: &Path) -> Result<(), Failed> {
     let binary = temp_dir.path().join(format!("fixture{}", std::env::consts::EXE_SUFFIX));
 
     let compile_output =
-        common::v_rust_command().arg(fixture).arg("-o").arg(&binary).output().unwrap();
+        tiny_common::v_rust_command().arg(fixture).arg("-o").arg(&binary).output().unwrap();
 
     if !compile_output.status.success() {
         return Err(render_process_failure("compile", fixture, &compile_output).into());
@@ -77,7 +77,7 @@ fn run_pass_fixture(fixture: &Path) -> Result<(), Failed> {
 }
 
 fn run_fail_fixture(fixture: &Path) -> Result<(), Failed> {
-    let output = common::v_rust_command().arg(fixture).output().unwrap();
+    let output = tiny_common::v_rust_command().arg(fixture).output().unwrap();
 
     if output.status.success() {
         return Err(

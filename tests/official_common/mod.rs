@@ -3,7 +3,7 @@ use libtest_mimic::Failed;
 use std::path::{Path, PathBuf};
 use std::process::Command as StdCommand;
 
-pub fn v_rust_command() -> Command {
+fn v_rust_command() -> Command {
     Command::cargo_bin("v-rust").expect("v-rust binary should be built by cargo test")
 }
 

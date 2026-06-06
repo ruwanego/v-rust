@@ -15,6 +15,10 @@ jobs:
       - name: Build Docker image and run green guardrails
         run: docker compose run --rm app just ci
 
+      - name: Run vlib suite progress log
+        continue-on-error: true
+        run: docker compose run --rm app just vlib-full -- --nocapture
+
       - name: Run full official suite progress log
         continue-on-error: true
         run: docker compose run --rm app just official-full -- --nocapture

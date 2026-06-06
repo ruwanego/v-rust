@@ -15,9 +15,15 @@ tiny *args:
 official-subset *args:
     cargo test --locked --test official_subset --all-features {{args}}
 
-green: unit tiny official-subset
+vlib-subset *args:
+    cargo test --locked --test vlib_subset --all-features {{args}}
+
+green: unit tiny official-subset vlib-subset
 
 test: green
+
+vlib-full *args:
+    cargo test --locked --test vlib_suite --all-features {{args}}
 
 official-full *args:
     cargo test --locked --test official_suite --all-features {{args}}

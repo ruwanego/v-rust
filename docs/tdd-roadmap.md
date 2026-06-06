@@ -97,7 +97,48 @@ Run in CI through:
 just official-subset
 ```
 
-### L3: Full Official Suite Progress
+### L3: Vlib Subset
+
+Purpose: keep V standard-library tests visible as their own acceptance lane.
+
+The manifest is:
+
+```text
+tests/vlib_subset.txt
+```
+
+Rules:
+
+1. Add a path only after L0 and L1 are green for the same behavior.
+2. Paths are relative to `tests/v_official_repo/vlib`.
+3. Each promoted path must pass under `v-rust test <vlib/path>`.
+4. Do not add a path just because it happens to pass accidentally.
+5. Vlib subset tests are part of the green gate once promoted.
+
+Run in CI through:
+
+```text
+just vlib-subset
+```
+
+### L4: Vlib Full Progress
+
+Purpose: keep an isolated progress log for V's standard-library `_test.v` files.
+
+Rules:
+
+1. This layer is expected to fail until the compiler can handle real V modules.
+2. It must not block the green gate yet.
+3. When failures shrink, promote the smallest stable vlib path into
+   `tests/vlib_subset.txt`.
+
+Run in CI through:
+
+```text
+just vlib-full -- --nocapture
+```
+
+### L5: Full Official Suite Progress
 
 Purpose: keep ordered progress logs against V's full `_test.v` corpus.
 
@@ -127,11 +168,11 @@ just ci
 That expands to:
 
 ```text
-fmt -> lint -> unit -> tiny -> official-subset
+fmt -> lint -> unit -> tiny -> official-subset -> vlib-subset
 ```
 
-The full official suite is intentionally outside the green gate until it is no
-longer expected to fail.
+The full vlib suite and full official suite are intentionally outside the green
+gate until they are no longer expected to fail.
 
 ## Feature Micro-Loop
 
@@ -148,10 +189,15 @@ Use this exact loop for every compiler feature:
 9. Refactor only after green.
 10. Push and verify `just ci` stays green in GitHub CI.
 11. Inspect the full official suite progress log.
-12. If a relevant official test is now supported, add exactly one path to
+12. Inspect the vlib progress log when the feature touches standard-library
+    behavior.
+13. If a relevant official test is now supported, add exactly one path to
     `tests/official_subset.txt`.
-13. Push and verify `just official-subset` is green in GitHub CI.
-14. Leave the full official suite running as non-blocking telemetry.
+14. If a relevant vlib test is now supported, add exactly one path to
+    `tests/vlib_subset.txt`.
+15. Push and verify `just ci` is green in GitHub CI.
+16. Leave the full vlib and full official suites running as non-blocking
+    telemetry.
 
 No local `cargo test`, `cargo clippy`, or `cargo fmt` is part of this workflow.
 GitHub Actions is the source of truth.
