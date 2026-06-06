@@ -8,9 +8,8 @@ fn main() {
 
     official_common::ensure_official_repo(&repo_dir);
 
-    let tests =
-        vec![Trial::test("official v test semantics", move || {
-            official_common::run_v_rust_test(&repo_dir)
-        })];
+    let tests = vec![Trial::test("official v test semantics", move || {
+        official_common::run_v_rust_test(&repo_dir)
+    })];
     libtest_mimic::run(&args, tests).exit();
 }
