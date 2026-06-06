@@ -44,12 +44,8 @@ fn run_pass_fixture(fixture: &Path) -> Result<(), Failed> {
     let temp_dir = tempfile::tempdir().map_err(|e| format!("failed to create temp dir: {e}"))?;
     let binary = temp_dir.path().join(format!("fixture{}", std::env::consts::EXE_SUFFIX));
 
-    let compile_output = common::v_rust_command()
-        .arg(fixture)
-        .arg("-o")
-        .arg(&binary)
-        .output()
-        .unwrap();
+    let compile_output =
+        common::v_rust_command().arg(fixture).arg("-o").arg(&binary).output().unwrap();
 
     if !compile_output.status.success() {
         return Err(render_process_failure("compile", fixture, &compile_output).into());
