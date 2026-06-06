@@ -12,5 +12,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Build Docker image and run guardrails
+      - name: Build Docker image and run green guardrails
         run: docker compose run --rm app just ci
+
+      - name: Run full official suite progress log
+        continue-on-error: true
+        run: docker compose run --rm app just official-full -- --nocapture

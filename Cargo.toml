@@ -35,5 +35,13 @@ result_large_err = "allow"
 too_many_lines = "allow"
 
 [[test]]
+name = "tiny_v_fixtures"
+harness = false
+
+[[test]]
+name = "official_subset"
+harness = false
+
+[[test]]
 name = "official_suite"
 harness = false
