@@ -1,33 +1,45 @@
 pub mod ast;
 
 use crate::lex::Token;
-use ast::{Expr, FunctionDecl, Program, Stmt};
+use crate::source::Span;
+use ast::{Expr, ExprKind, FunctionDecl, Program, Stmt, StmtKind};
 use chumsky::prelude::*;
 
-pub fn parser() -> impl Parser<Token, Program, Error = Simple<Token>> {
+#[must_use]
+pub fn parser() -> impl Parser<Token, Program, Error = Simple<Token, Span>> {
     let identifier = select! {
         Token::Identifier(name) => name,
-    };
+    }
+    .map_with_span(|name, span: Span| (name, span));
 
     let expr = recursive(|expr| {
         let string_lit = select! {
-            Token::StringLiteral(s) => Expr::StringLiteral(s),
-        };
+            Token::StringLiteral(s) => s,
+        }
+        .map_with_span(|value, span: Span| Expr::new(ExprKind::StringLiteral(value), span));
+
         let int_lit = select! {
-            Token::IntLiteral(i) => Expr::IntLiteral(i),
-        };
+            Token::IntLiteral(i) => i,
+        }
+        .map_with_span(|value, span: Span| Expr::new(ExprKind::IntLiteral(value), span));
+
         let bool_lit = choice((
-            just(Token::True).to(Expr::BoolLiteral(true)),
-            just(Token::False).to(Expr::BoolLiteral(false)),
-        ));
-        let ident_expr = identifier.map(Expr::Identifier);
+            just(Token::True).to(ExprKind::BoolLiteral(true)),
+            just(Token::False).to(ExprKind::BoolLiteral(false)),
+        ))
+        .map_with_span(|kind, span: Span| Expr::new(kind, span));
+
+        let ident_expr = identifier.map(|(name, span)| Expr::new(ExprKind::Identifier(name), span));
 
         let args = expr
             .clone()
             .separated_by(just(Token::Comma))
             .delimited_by(just(Token::LParen), just(Token::RParen));
 
-        let func_call = identifier.then(args).map(|(name, args)| Expr::FunctionCall { name, args });
+        let func_call =
+            identifier.then(args).map_with_span(|((name, _name_span), args), span: Span| {
+                Expr::new(ExprKind::FunctionCall { name, args }, span)
+            });
 
         let atom = choice((
             func_call,
@@ -38,13 +50,16 @@ pub fn parser() -> impl Parser<Token, Program, Error = Simple<Token>> {
             expr.clone().delimited_by(just(Token::LParen), just(Token::RParen)),
         ));
 
-        let unary = choice((
+        let unary_op = choice((
             just(Token::Minus).to(ast::UnaryOp::Minus),
             just(Token::Not).to(ast::UnaryOp::Not),
-        ))
-        .repeated()
-        .then(atom)
-        .foldr(|op, rhs| Expr::Unary { op, expr: Box::new(rhs) });
+        ));
+
+        let unary = unary_op.repeated().then(atom).map_with_span(|(ops, atom), span: Span| {
+            ops.into_iter().rev().fold(atom, |expr, op| {
+                Expr::new(ExprKind::Unary { op, expr: Box::new(expr) }, span.clone())
+            })
+        });
 
         let factor = unary
             .clone()
@@ -57,7 +72,7 @@ pub fn parser() -> impl Parser<Token, Program, Error = Simple<Token>> {
                 .then(unary)
                 .repeated(),
             )
-            .foldl(|lhs, (op, rhs)| Expr::Binary { op, left: Box::new(lhs), right: Box::new(rhs) });
+            .foldl(binary_expr);
 
         let term = factor
             .clone()
@@ -69,7 +84,7 @@ pub fn parser() -> impl Parser<Token, Program, Error = Simple<Token>> {
                 .then(factor)
                 .repeated(),
             )
-            .foldl(|lhs, (op, rhs)| Expr::Binary { op, left: Box::new(lhs), right: Box::new(rhs) });
+            .foldl(binary_expr);
 
         let comparison = term
             .clone()
@@ -85,17 +100,17 @@ pub fn parser() -> impl Parser<Token, Program, Error = Simple<Token>> {
                 .then(term)
                 .repeated(),
             )
-            .foldl(|lhs, (op, rhs)| Expr::Binary { op, left: Box::new(lhs), right: Box::new(rhs) });
+            .foldl(binary_expr);
 
         let logical_and = comparison
             .clone()
             .then(just(Token::And).to(ast::BinaryOp::And).then(comparison).repeated())
-            .foldl(|lhs, (op, rhs)| Expr::Binary { op, left: Box::new(lhs), right: Box::new(rhs) });
+            .foldl(binary_expr);
 
         logical_and
             .clone()
             .then(just(Token::Or).to(ast::BinaryOp::Or).then(logical_and).repeated())
-            .foldl(|lhs, (op, rhs)| Expr::Binary { op, left: Box::new(lhs), right: Box::new(rhs) })
+            .foldl(binary_expr)
     });
 
     let stmt = choice((
@@ -104,16 +119,18 @@ pub fn parser() -> impl Parser<Token, Program, Error = Simple<Token>> {
             .then(identifier)
             .then_ignore(just(Token::DeclAssign))
             .then(expr.clone())
-            .map(|((mut_token, name), expr)| Stmt::VarDecl {
-                name,
-                is_mut: mut_token.is_some(),
-                expr,
+            .map_with_span(|((mut_token, (name, name_span)), expr), span: Span| {
+                Stmt::new(
+                    StmtKind::VarDecl { name, name_span, is_mut: mut_token.is_some(), expr },
+                    span,
+                )
             }),
-        identifier
-            .then_ignore(just(Token::Assign))
-            .then(expr.clone())
-            .map(|(name, expr)| Stmt::Assign { name, expr }),
-        expr.clone().map(Stmt::ExprStmt),
+        identifier.then_ignore(just(Token::Assign)).then(expr.clone()).map_with_span(
+            |((name, name_span), expr), span: Span| {
+                Stmt::new(StmtKind::Assign { name, name_span, expr }, span)
+            },
+        ),
+        expr.clone().map_with_span(|expr, span: Span| Stmt::new(StmtKind::ExprStmt(expr), span)),
     ));
 
     let block = stmt.repeated().delimited_by(just(Token::LBrace), just(Token::RBrace));
@@ -123,43 +140,76 @@ pub fn parser() -> impl Parser<Token, Program, Error = Simple<Token>> {
         .then_ignore(just(Token::LParen))
         .then_ignore(just(Token::RParen))
         .then(block)
-        .map(|(name, body)| FunctionDecl { name, body });
+        .map_with_span(|((name, name_span), body), span: Span| FunctionDecl {
+            name,
+            name_span,
+            body,
+            span,
+        });
 
-    function_decl.repeated().map(|functions| Program { functions }).then_ignore(end())
+    function_decl
+        .repeated()
+        .map_with_span(|functions, span: Span| Program { functions, span })
+        .then_ignore(end())
+}
+
+fn binary_expr(lhs: Expr, (op, rhs): (ast::BinaryOp, Expr)) -> Expr {
+    let span = lhs.span.start..rhs.span.end;
+    Expr::new(ExprKind::Binary { op, left: Box::new(lhs), right: Box::new(rhs) }, span)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use logos::Logos;
+    use crate::lex;
+    use chumsky::stream::Stream;
+    use std::path::Path;
 
     #[test]
     fn test_parser() {
-        let tokens: Vec<_> = Token::lexer("fn main() { mut x := 5 \n x = 7 \n println(x) }")
-            .map(|res| res.unwrap())
-            .collect();
-        let program = parser().parse(tokens).unwrap();
+        let source = "fn main() { mut x := 5 \n x = 7 \n println(x) }";
+        let tokens = lex::tokenize(source, Path::new("<test>")).unwrap();
+        let eoi = source.len()..source.len();
+        let program = parser().parse(Stream::from_iter(eoi, tokens.into_iter())).unwrap();
         assert_eq!(program.functions.len(), 1);
         assert_eq!(program.functions[0].name, "main");
         assert_eq!(program.functions[0].body.len(), 3);
 
-        assert_eq!(
-            program.functions[0].body[0],
-            Stmt::VarDecl { name: "x".to_string(), is_mut: true, expr: Expr::IntLiteral(5) }
-        );
+        assert!(matches!(
+            &program.functions[0].body[0].kind,
+            StmtKind::VarDecl { name, is_mut: true, expr, .. }
+                if name == "x" && matches!(expr.kind, ExprKind::IntLiteral(5))
+        ));
 
-        assert_eq!(
-            program.functions[0].body[1],
-            Stmt::Assign { name: "x".to_string(), expr: Expr::IntLiteral(7) }
-        );
+        assert!(matches!(
+            &program.functions[0].body[1].kind,
+            StmtKind::Assign { name, expr, .. }
+                if name == "x" && matches!(expr.kind, ExprKind::IntLiteral(7))
+        ));
 
-        match &program.functions[0].body[2] {
-            Stmt::ExprStmt(Expr::FunctionCall { name, args }) => {
+        match &program.functions[0].body[2].kind {
+            StmtKind::ExprStmt(Expr { kind: ExprKind::FunctionCall { name, args }, .. }) => {
                 assert_eq!(name, "println");
                 assert_eq!(args.len(), 1);
-                assert_eq!(args[0], Expr::Identifier("x".to_string()));
+                assert!(matches!(args[0].kind, ExprKind::Identifier(ref name) if name == "x"));
             }
             _ => panic!("Expected ExprStmt(FunctionCall)"),
         }
+    }
+
+    #[test]
+    fn parser_retains_ast_byte_spans() {
+        let source = "fn main() { value := 5 }";
+        let tokens = lex::tokenize(source, Path::new("<test>")).unwrap();
+        let program = parser()
+            .parse(Stream::from_iter(source.len()..source.len(), tokens.into_iter()))
+            .unwrap();
+
+        let StmtKind::VarDecl { name_span, expr, .. } = &program.functions[0].body[0].kind else {
+            panic!("expected var declaration");
+        };
+
+        assert_eq!(name_span.clone(), 12..17);
+        assert_eq!(expr.span, 21..22);
     }
 }

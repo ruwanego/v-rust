@@ -22,14 +22,22 @@ pub fn compile_file(input: &Path, output: &Path) -> Result<(), String> {
     let program = frontend::parse_tokens(tokens)?;
 
     let mut analyzer = sema::SemanticAnalyzer::new();
-    if let Err(errors) = analyzer.analyze(&program) {
-        let mut message = String::new();
-        for err in errors {
-            writeln!(&mut message, "Semantic error: {}", err.message)
+    let checked_program = match analyzer.analyze(&program) {
+        Ok(checked_program) => checked_program,
+        Err(errors) => {
+            let mut message = String::new();
+            for err in errors {
+                let (line, column) = frontend::source::line_column(&source_code, err.span.start);
+                writeln!(
+                    &mut message,
+                    "Semantic error at {}:{line}:{column}: {err}",
+                    input.display()
+                )
                 .map_err(|e| format!("Failed to render semantic error: {e}"))?;
+            }
+            return Err(message);
         }
-        return Err(message);
-    }
+    };
 
     #[cfg(feature = "codegen")]
     {
@@ -37,7 +45,7 @@ pub fn compile_file(input: &Path, output: &Path) -> Result<(), String> {
 
         let context = Context::create();
         let codegen = crate::codegen::CodeGen::new(&context, "v_module");
-        codegen.generate(&program);
+        codegen.generate(&checked_program);
 
         let obj_dir =
             tempfile::tempdir().map_err(|e| format!("Failed to create object temp dir: {e}"))?;
@@ -59,6 +67,7 @@ pub fn compile_file(input: &Path, output: &Path) -> Result<(), String> {
     #[cfg(not(feature = "codegen"))]
     {
         let _ = output;
+        let _ = checked_program;
     }
 
     Ok(())

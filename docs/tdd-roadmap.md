@@ -20,6 +20,21 @@ Do not add behavior from memory. Start every feature by locating the relevant
 official doc section and recording the exact grammar or semantic rule in the
 test name, fixture name, or test comment.
 
+## Architecture Mapping Gate
+
+Before adding a language feature, identify its Rust semantic home in
+`ARCHITECTURE_MAPPING.md`.
+
+Rules:
+
+1. Parser-only syntax may stop at parser AST.
+2. Anything with type, ownership, visibility, module, mutability, or runtime
+   behavior must extend checked frontend output before backend code changes.
+3. Parser AST nodes that can produce diagnostics must carry source spans.
+4. Do not add backend special cases for semantics the frontend can prove.
+5. If the mapping is unclear, update `ARCHITECTURE_MAPPING.md` first, then write
+   the red test.
+
 ## Harness Layers
 
 ### L0: Rust Unit Tests
@@ -180,27 +195,28 @@ Use this exact loop for every compiler feature:
 
 1. Select exactly one V semantic rule from the official docs.
 2. Write down the doc page and section in the issue, PR, or commit notes.
-3. Add or update one Rust unit test.
-4. Push and verify the Rust unit test fails in GitHub CI.
-5. Add or update one tiny V fixture for the same behavior.
-6. Push and verify the tiny fixture fails in GitHub CI.
-7. Implement the smallest compiler change that can satisfy both failures.
-8. Push and verify `just ci` is green in GitHub CI.
-9. Refactor only after green.
-10. Push and verify `just ci` stays green in GitHub CI.
-11. Inspect the full official suite progress log.
-12. Inspect the vlib progress log when the feature touches standard-library
+3. Identify the Rust semantic home in `ARCHITECTURE_MAPPING.md`.
+4. Add or update one Rust unit test.
+5. Push and verify the Rust unit test fails in GitHub CI.
+6. Add or update one tiny V fixture for the same behavior.
+7. Push and verify the tiny fixture fails in GitHub CI.
+8. Implement the smallest compiler change that can satisfy both failures.
+9. Push and verify `just ci` is green in GitHub CI.
+10. Refactor only after green.
+11. Push and verify `just ci` stays green in GitHub CI.
+12. Inspect the full official suite progress log.
+13. Inspect the vlib progress log when the feature touches standard-library
     behavior.
-13. If a relevant official test is now supported, add exactly one path to
+14. If a relevant official test is now supported, add exactly one path to
     `tests/official_subset.txt`.
-14. If a relevant vlib test is now supported, add exactly one path to
+15. If a relevant vlib test is now supported, add exactly one path to
     `tests/vlib_subset.txt`.
-15. Push and verify `just ci` is green in GitHub CI.
-16. Leave the full vlib and full official suites running as non-blocking
+16. Push and verify `just ci` is green in GitHub CI.
+17. Leave the full vlib and full official suites running as non-blocking
     telemetry.
 
-No local `cargo test`, `cargo clippy`, or `cargo fmt` is part of this workflow.
-GitHub Actions is the source of truth.
+Local `cargo test`, `cargo clippy`, and `cargo fmt` are useful fast feedback.
+GitHub Actions remains the source of truth for pull requests.
 
 ## Current Baseline
 
@@ -215,6 +231,10 @@ The compiler currently supports only a tiny subset:
 7. mutable local assignment with `mut`
 8. `println(...)` as a builtin
 9. native binary generation through LLVM and clang
+10. typed semantic output through `frontend::sema::CheckedProgram`
+11. primitive frontend `Type` values instead of stringly semantic type names
+12. byte spans on parser AST nodes used by semantic diagnostics
+13. semantic error rendering with file, line, and column locations
 
 The compiler does not yet fully support normal V test semantics. In official V,
 `_test.v` files are compiled as separate programs, test function names start
@@ -400,10 +420,16 @@ generated binary, but it does not yet synthesize or execute V test functions.
 
 #### 4.1 Type Representation
 
-1. Replace stringly typed sema results with a `Type` enum.
-2. Model void, bool, int widths, floats, string.
-3. Add source spans to errors before error counts grow.
-4. Ensure type comparison is structural.
+Status: pulled forward as a foundation gate.
+
+1. Done: replace stringly typed sema results with a `Type` enum.
+2. Done: return `CheckedProgram` from semantic analysis.
+3. Done: make LLVM codegen consume checked frontend output.
+4. Next: model signedness and integer widths instead of only `i64`.
+5. Next: add floats and numeric literal defaulting.
+6. Done: carry source spans from lexer/parser into semantic diagnostics.
+7. Done: render semantic diagnostics with file, line, and column locations.
+8. Next: ensure all type comparison remains structural or stable-ID based.
 
 #### 4.2 Arrays
 

@@ -1,22 +1,40 @@
+use crate::source::Span;
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct Program {
     pub functions: Vec<FunctionDecl>,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionDecl {
     pub name: String,
+    pub name_span: Span,
     pub body: Vec<Stmt>,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Stmt {
+pub struct Stmt {
+    pub kind: StmtKind,
+    pub span: Span,
+}
+
+impl Stmt {
+    #[must_use]
+    pub fn new(kind: StmtKind, span: Span) -> Self {
+        Self { kind, span }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum StmtKind {
     ExprStmt(Expr),
-    VarDecl { name: String, is_mut: bool, expr: Expr },
-    Assign { name: String, expr: Expr },
+    VarDecl { name: String, name_span: Span, is_mut: bool, expr: Expr },
+    Assign { name: String, name_span: Span, expr: Expr },
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BinaryOp {
     Add,
     Sub,
@@ -33,14 +51,27 @@ pub enum BinaryOp {
     Or,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UnaryOp {
     Minus,
     Not,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Expr {
+pub struct Expr {
+    pub kind: ExprKind,
+    pub span: Span,
+}
+
+impl Expr {
+    #[must_use]
+    pub fn new(kind: ExprKind, span: Span) -> Self {
+        Self { kind, span }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ExprKind {
     StringLiteral(String),
     IntLiteral(i64),
     BoolLiteral(bool),

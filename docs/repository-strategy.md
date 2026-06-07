@@ -100,8 +100,9 @@ The repository is currently a Cargo workspace with:
 
 1. Frontend modules in `crates/frontend/src/lex`,
    `crates/frontend/src/parse`, and `crates/frontend/src/sema`.
-2. LLVM/Inkwell code generation still in the root package at `src/codegen`.
-3. CLI and test harness modules still in the root package at `src/driver`.
+2. Frontend semantic analysis returns typed checked output for backends.
+3. LLVM/Inkwell code generation still in the root package at `src/codegen`.
+4. CLI and test harness modules still in the root package at `src/driver`.
 
 The migration to the target workspace must continue as short, reviewable trunk
 branches. Do not combine the frontend split, backend trait extraction,

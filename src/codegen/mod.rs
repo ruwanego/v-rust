@@ -1,4 +1,5 @@
-use frontend::parse::ast::{Expr, Program, Stmt};
+use frontend::parse::ast::{BinaryOp, UnaryOp};
+use frontend::sema::{CheckedExpr, CheckedExprKind, CheckedProgram, CheckedStmt};
 use inkwell::context::Context;
 use inkwell::module::Module;
 use inkwell::targets::{
@@ -7,6 +8,9 @@ use inkwell::targets::{
 use inkwell::OptimizationLevel;
 use std::collections::HashMap;
 use std::path::Path;
+
+type LocalEnv<'ctx> =
+    HashMap<String, (inkwell::types::BasicTypeEnum<'ctx>, inkwell::values::PointerValue<'ctx>)>;
 
 pub struct CodeGen<'ctx> {
     pub context: &'ctx Context,
@@ -22,7 +26,7 @@ impl<'ctx> CodeGen<'ctx> {
         CodeGen { context, module, builder }
     }
 
-    pub fn generate(&self, program: &Program) {
+    pub fn generate(&self, program: &CheckedProgram) {
         // Declare printf
         let i32_type = self.context.i32_type();
         let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
@@ -51,19 +55,16 @@ impl<'ctx> CodeGen<'ctx> {
 
     fn generate_stmt(
         &self,
-        stmt: &Stmt,
+        stmt: &CheckedStmt,
         printf_func: inkwell::values::FunctionValue<'ctx>,
-        env: &mut HashMap<
-            String,
-            (inkwell::types::BasicTypeEnum<'ctx>, inkwell::values::PointerValue<'ctx>),
-        >,
+        env: &mut LocalEnv<'ctx>,
     ) {
         match stmt {
-            Stmt::ExprStmt(expr) => {
-                if let Expr::FunctionCall { name, args } = expr {
+            CheckedStmt::ExprStmt { expr, span: _ } => {
+                if let CheckedExprKind::FunctionCall { name, args } = &expr.kind {
                     if name == "println" && args.len() == 1 {
                         let arg = &args[0];
-                        if let Expr::StringLiteral(s) = arg {
+                        if let CheckedExprKind::StringLiteral(s) = &arg.kind {
                             let mut formatted = s.clone();
                             formatted.push('\n');
                             let global_str =
@@ -98,14 +99,14 @@ impl<'ctx> CodeGen<'ctx> {
                     self.generate_expr(expr, env);
                 }
             }
-            Stmt::VarDecl { name, is_mut: _, expr } => {
+            CheckedStmt::VarDecl { name, is_mut: _, typ: _, expr, span: _ } => {
                 if let Some(val) = self.generate_expr(expr, env) {
                     let alloca = self.builder.build_alloca(val.get_type(), name).unwrap();
                     self.builder.build_store(alloca, val).unwrap();
                     env.insert(name.clone(), (val.get_type(), alloca));
                 }
             }
-            Stmt::Assign { name, expr } => {
+            CheckedStmt::Assign { name, typ: _, expr, span: _ } => {
                 if let Some((_, ptr)) = env.get(name) {
                     if let Some(val) = self.generate_expr(expr, env) {
                         self.builder.build_store(*ptr, val).unwrap();
@@ -119,19 +120,18 @@ impl<'ctx> CodeGen<'ctx> {
 
     fn generate_expr(
         &self,
-        expr: &Expr,
-        env: &HashMap<
-            String,
-            (inkwell::types::BasicTypeEnum<'ctx>, inkwell::values::PointerValue<'ctx>),
-        >,
+        expr: &CheckedExpr,
+        env: &LocalEnv<'ctx>,
     ) -> Option<inkwell::values::BasicValueEnum<'ctx>> {
-        match expr {
-            Expr::IntLiteral(i) => Some(self.context.i64_type().const_int(*i as u64, false).into()),
-            Expr::BoolLiteral(b) => {
+        match &expr.kind {
+            CheckedExprKind::IntLiteral(i) => {
+                Some(self.context.i64_type().const_int(*i as u64, false).into())
+            }
+            CheckedExprKind::BoolLiteral(b) => {
                 Some(self.context.bool_type().const_int(u64::from(*b), false).into())
             }
-            Expr::StringLiteral(_) => None, // standalone strings do nothing for now
-            Expr::Identifier(name) => {
+            CheckedExprKind::StringLiteral(_) => None, // standalone strings do nothing for now
+            CheckedExprKind::Identifier(name) => {
                 if let Some((typ, ptr)) = env.get(name) {
                     let loaded = self.builder.build_load(*typ, *ptr, name).unwrap();
                     Some(loaded)
@@ -139,12 +139,11 @@ impl<'ctx> CodeGen<'ctx> {
                     unreachable!("Sema should have caught undefined variable: {}", name);
                 }
             }
-            Expr::Binary { op, left, right } => {
-                use frontend::parse::ast::BinaryOp;
+            CheckedExprKind::Binary { op, left, right } => {
                 let l = self.generate_expr(left, env)?.into_int_value();
                 let r = self.generate_expr(right, env)?.into_int_value();
 
-                let res = match op {
+                let res = match *op {
                     BinaryOp::Add => self.builder.build_int_add(l, r, "addtmp").unwrap(),
                     BinaryOp::Sub => self.builder.build_int_sub(l, r, "subtmp").unwrap(),
                     BinaryOp::Mul => self.builder.build_int_mul(l, r, "multmp").unwrap(),
@@ -179,16 +178,15 @@ impl<'ctx> CodeGen<'ctx> {
                 };
                 Some(res.into())
             }
-            Expr::Unary { op, expr } => {
-                use frontend::parse::ast::UnaryOp;
+            CheckedExprKind::Unary { op, expr } => {
                 let val = self.generate_expr(expr, env)?.into_int_value();
-                let res = match op {
+                let res = match *op {
                     UnaryOp::Minus => self.builder.build_int_neg(val, "negtmp").unwrap(),
                     UnaryOp::Not => self.builder.build_not(val, "nottmp").unwrap(),
                 };
                 Some(res.into())
             }
-            Expr::FunctionCall { .. } => None, // for now, func calls return nothing
+            CheckedExprKind::FunctionCall { .. } => None, // for now, func calls return nothing
         }
     }
 

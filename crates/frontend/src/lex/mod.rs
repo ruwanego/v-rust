@@ -1,6 +1,8 @@
+use crate::source::{line_column, Span, Spanned};
 use logos::Logos;
-use std::ops::Range;
 use std::path::Path;
+
+pub type SpannedToken = Spanned<Token>;
 
 #[derive(Logos, Debug, PartialEq, Eq, Hash, Clone)]
 #[logos(skip r"[ \t\r\n\f]+")]
@@ -92,11 +94,11 @@ pub enum Token {
     IntLiteral(i64),
 }
 
-pub fn tokenize(source: &str, input: &Path) -> Result<Vec<Token>, String> {
+pub fn tokenize(source: &str, input: &Path) -> Result<Vec<SpannedToken>, String> {
     Token::lexer(source)
         .spanned()
         .map(|(token, span)| {
-            token.map_err(|()| {
+            token.map(|token| (token, span.clone())).map_err(|()| {
                 let (line, column) = line_column(source, span.start);
                 let unexpected = unexpected_character(source, &span);
                 format!(
@@ -109,26 +111,7 @@ pub fn tokenize(source: &str, input: &Path) -> Result<Vec<Token>, String> {
         .collect()
 }
 
-fn line_column(source: &str, offset: usize) -> (usize, usize) {
-    let mut line = 1;
-    let mut line_start = 0;
-
-    for (index, character) in source.char_indices() {
-        if index >= offset {
-            break;
-        }
-
-        if character == '\n' {
-            line += 1;
-            line_start = index + character.len_utf8();
-        }
-    }
-
-    let column = source.get(line_start..offset).map_or(1, |line| line.chars().count() + 1);
-    (line, column)
-}
-
-fn unexpected_character(source: &str, span: &Range<usize>) -> char {
+fn unexpected_character(source: &str, span: &Span) -> char {
     source.get(span.clone()).and_then(|slice| slice.chars().next()).unwrap_or('\0')
 }
 
@@ -186,5 +169,14 @@ mod tests {
                 Token::RBrace,
             ]
         );
+    }
+
+    #[test]
+    fn tokenize_retains_byte_spans() {
+        let tokens = tokenize("fn main() {}", Path::new("<test>")).unwrap();
+
+        assert_eq!(tokens[0], (Token::Fn, 0..2));
+        assert_eq!(tokens[1], (Token::Identifier("main".to_string()), 3..7));
+        assert_eq!(tokens[2], (Token::LParen, 7..8));
     }
 }
