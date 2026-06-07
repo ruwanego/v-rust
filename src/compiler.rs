@@ -19,7 +19,7 @@ pub fn compile_file(input: &Path, output: &Path) -> Result<(), String> {
 
     let tokens = lex::tokenize(&source_code, input)?;
 
-    let program = frontend::parse_tokens(tokens)?;
+    let program = frontend::parse_tokens(&source_code, input, tokens)?;
 
     let mut analyzer = sema::SemanticAnalyzer::new();
     let checked_program = match analyzer.analyze(&program) {
