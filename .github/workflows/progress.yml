@@ -1,0 +1,20 @@
+name: Progress
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * 0"
+
+jobs:
+  full-suite-progress:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Run vlib suite progress log
+        continue-on-error: true
+        run: docker compose run --rm app just vlib-full -- --nocapture
+
+      - name: Run full official suite progress log
+        continue-on-error: true
+        run: docker compose run --rm app just official-full -- --nocapture

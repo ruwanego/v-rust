@@ -15,11 +15,3 @@ jobs:
 
       - name: Build Docker image and run PR fast-path guardrails
         run: docker compose run --rm app just pr-fast
-
-      - name: Run vlib suite progress log
-        continue-on-error: true
-        run: docker compose run --rm app just vlib-full -- --nocapture
-
-      - name: Run full official suite progress log
-        continue-on-error: true
-        run: docker compose run --rm app just official-full -- --nocapture
