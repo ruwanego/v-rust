@@ -2,7 +2,7 @@ pub mod ast;
 
 use crate::lex::Token;
 use crate::source::Span;
-use ast::{Expr, ExprKind, FunctionDecl, Program, Stmt, StmtKind};
+use ast::{Expr, ExprKind, FunctionDecl, ModuleDecl, Program, Stmt, StmtKind};
 use chumsky::prelude::*;
 
 #[must_use]
@@ -147,9 +147,14 @@ pub fn parser() -> impl Parser<Token, Program, Error = Simple<Token, Span>> {
             span,
         });
 
-    function_decl
-        .repeated()
-        .map_with_span(|functions, span: Span| Program { functions, span })
+    let module_decl = just(Token::Module)
+        .ignore_then(identifier)
+        .map_with_span(|(name, name_span), span: Span| ModuleDecl { name, name_span, span });
+
+    module_decl
+        .or_not()
+        .then(function_decl.repeated())
+        .map_with_span(|(module, functions), span: Span| Program { module, functions, span })
         .then_ignore(end())
 }
 
@@ -211,5 +216,30 @@ mod tests {
 
         assert_eq!(name_span.clone(), 12..17);
         assert_eq!(expr.span, 21..22);
+    }
+
+    #[test]
+    fn parser_accepts_initial_module_declaration() {
+        let source = "module main\n\nfn main() {}";
+        let tokens = lex::tokenize(source, Path::new("<test>")).unwrap();
+        let program = parser()
+            .parse(Stream::from_iter(source.len()..source.len(), tokens.into_iter()))
+            .unwrap();
+
+        let module = program.module.expect("expected module declaration");
+        assert_eq!(module.name, "main");
+        assert_eq!(module.name_span, 7..11);
+        assert_eq!(module.span, 0..11);
+    }
+
+    #[test]
+    fn parser_rejects_non_initial_module_declaration() {
+        let source = "fn main() {}\nmodule other";
+        let tokens = lex::tokenize(source, Path::new("<test>")).unwrap();
+        let errors = parser()
+            .parse(Stream::from_iter(source.len()..source.len(), tokens.into_iter()))
+            .unwrap_err();
+
+        assert_eq!(errors[0].span(), 13..19);
     }
 }

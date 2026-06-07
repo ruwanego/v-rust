@@ -14,6 +14,9 @@ pub enum Token {
     #[token("mut")]
     Mut,
 
+    #[token("module")]
+    Module,
+
     #[regex("[a-zA-Z_][a-zA-Z0-9_]*", |lex| lex.slice().to_string())]
     Identifier(String),
 
@@ -178,5 +181,13 @@ mod tests {
         assert_eq!(tokens[0], (Token::Fn, 0..2));
         assert_eq!(tokens[1], (Token::Identifier("main".to_string()), 3..7));
         assert_eq!(tokens[2], (Token::LParen, 7..8));
+    }
+
+    #[test]
+    fn tokenizes_module_keyword() {
+        let tokens = tokenize("module main", Path::new("<test>")).unwrap();
+
+        assert_eq!(tokens[0], (Token::Module, 0..6));
+        assert_eq!(tokens[1], (Token::Identifier("main".to_string()), 7..11));
     }
 }
