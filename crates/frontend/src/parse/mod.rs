@@ -2,7 +2,7 @@ pub mod ast;
 
 use crate::lex::Token;
 use crate::source::Span;
-use ast::{Expr, ExprKind, FunctionDecl, ModuleDecl, Program, Stmt, StmtKind};
+use ast::{Expr, ExprKind, FunctionDecl, ImportDecl, ModuleDecl, Program, Stmt, StmtKind};
 use chumsky::prelude::*;
 
 #[must_use]
@@ -151,10 +151,20 @@ pub fn parser() -> impl Parser<Token, Program, Error = Simple<Token, Span>> {
         .ignore_then(identifier)
         .map_with_span(|(name, name_span), span: Span| ModuleDecl { name, name_span, span });
 
+    let import_decl = just(Token::Import)
+        .ignore_then(identifier)
+        .map_with_span(|(name, name_span), span: Span| ImportDecl { name, name_span, span });
+
     module_decl
         .or_not()
+        .then(import_decl.repeated())
         .then(function_decl.repeated())
-        .map_with_span(|(module, functions), span: Span| Program { module, functions, span })
+        .map_with_span(|((module, imports), functions), span: Span| Program {
+            module,
+            imports,
+            functions,
+            span,
+        })
         .then_ignore(end())
 }
 
@@ -238,10 +248,15 @@ mod tests {
         // simple imports use `import module_name`.
         let source = "import os\n\nfn main() {}";
         let tokens = lex::tokenize(source, Path::new("<test>")).unwrap();
-        let parsed =
-            parser().parse(Stream::from_iter(source.len()..source.len(), tokens.into_iter()));
+        let program = parser()
+            .parse(Stream::from_iter(source.len()..source.len(), tokens.into_iter()))
+            .unwrap();
 
-        assert!(parsed.is_ok(), "simple import declarations should parse: {parsed:?}");
+        assert!(program.module.is_none());
+        assert_eq!(program.imports.len(), 1);
+        assert_eq!(program.imports[0].name, "os");
+        assert_eq!(program.imports[0].name_span, 7..9);
+        assert_eq!(program.imports[0].span, 0..9);
     }
 
     #[test]

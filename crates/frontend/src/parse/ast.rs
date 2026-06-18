@@ -3,12 +3,20 @@ use crate::source::Span;
 #[derive(Debug, PartialEq, Clone)]
 pub struct Program {
     pub module: Option<ModuleDecl>,
+    pub imports: Vec<ImportDecl>,
     pub functions: Vec<FunctionDecl>,
     pub span: Span,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct ModuleDecl {
+    pub name: String,
+    pub name_span: Span,
+    pub span: Span,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct ImportDecl {
     pub name: String,
     pub name_span: Span,
     pub span: Span,

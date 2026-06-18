@@ -17,6 +17,9 @@ pub enum Token {
     #[token("module")]
     Module,
 
+    #[token("import")]
+    Import,
+
     #[regex("[a-zA-Z_][a-zA-Z0-9_]*", |lex| lex.slice().to_string())]
     Identifier(String),
 
@@ -189,5 +192,13 @@ mod tests {
 
         assert_eq!(tokens[0], (Token::Module, 0..6));
         assert_eq!(tokens[1], (Token::Identifier("main".to_string()), 7..11));
+    }
+
+    #[test]
+    fn tokenizes_import_keyword() {
+        let tokens = tokenize("import os", Path::new("<test>")).unwrap();
+
+        assert_eq!(tokens[0], (Token::Import, 0..6));
+        assert_eq!(tokens[1], (Token::Identifier("os".to_string()), 7..9));
     }
 }

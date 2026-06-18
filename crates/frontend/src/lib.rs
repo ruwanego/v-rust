@@ -79,6 +79,7 @@ fn format_expected_token(token: &lex::Token) -> String {
         lex::Token::Fn => "`fn`".to_string(),
         lex::Token::Mut => "`mut`".to_string(),
         lex::Token::Module => "`module`".to_string(),
+        lex::Token::Import => "`import`".to_string(),
         lex::Token::Identifier(_) => "identifier".to_string(),
         lex::Token::LParen => "`(`".to_string(),
         lex::Token::RParen => "`)`".to_string(),
