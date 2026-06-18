@@ -51,6 +51,7 @@ pub enum SemaErrorKind {
     AlreadyDeclared { name: String },
     ImmutableAssignment { name: String },
     UndeclaredVariable { name: String },
+    UnresolvedImport { name: String },
     TypeMismatch { name: String, expected: Type, actual: Type },
     UnknownFunction { name: String },
     InvalidArithmeticOperands { op: BinaryOp, left: Type, right: Type },
@@ -77,6 +78,9 @@ impl fmt::Display for SemaError {
             }
             SemaErrorKind::UndeclaredVariable { name } => {
                 write!(formatter, "Variable '{name}' is not declared.")
+            }
+            SemaErrorKind::UnresolvedImport { name } => {
+                write!(formatter, "Import '{name}' is not resolved.")
             }
             SemaErrorKind::TypeMismatch { name, expected, actual } => {
                 write!(
@@ -145,6 +149,13 @@ impl SemanticAnalyzer {
     pub fn analyze(&mut self, program: &Program) -> Result<CheckedProgram, Vec<SemaError>> {
         let mut errors = Vec::new();
         let mut functions = Vec::new();
+
+        for import in &program.imports {
+            errors.push(error(
+                SemaErrorKind::UnresolvedImport { name: import.name.clone() },
+                import.name_span.clone(),
+            ));
+        }
 
         for func in &program.functions {
             self.variables.clear();
@@ -420,6 +431,20 @@ mod tests {
 
         assert_eq!(errors[0].kind, SemaErrorKind::UndeclaredVariable { name: "value".to_string() });
         assert_eq!(errors[0].span, 12..17);
+    }
+
+    #[test]
+    fn analyzer_rejects_unresolved_imports() {
+        let program = parse_program("import missing_module\n\nfn main() {}");
+        let mut analyzer = SemanticAnalyzer::new();
+
+        let errors = analyzer.analyze(&program).unwrap_err();
+
+        assert_eq!(
+            errors[0].kind,
+            SemaErrorKind::UnresolvedImport { name: "missing_module".to_string() }
+        );
+        assert_eq!(errors[0].span, 7..21);
     }
 
     fn parse_program(source: &str) -> Program {
