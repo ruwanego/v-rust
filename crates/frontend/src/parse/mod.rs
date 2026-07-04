@@ -260,6 +260,18 @@ mod tests {
     }
 
     #[test]
+    fn parser_accepts_selective_import_declaration_from_module_import_docs() {
+        // V docs: https://docs.vlang.io/module-imports.html#selective-imports,
+        // selective imports use `import module_name { symbol1, symbol2 }`.
+        let source = "import math { min, max }\n\nfn main() {}";
+        let tokens = lex::tokenize(source, Path::new("<test>")).unwrap();
+        let parsed =
+            parser().parse(Stream::from_iter(source.len()..source.len(), tokens.into_iter()));
+
+        assert!(parsed.is_ok(), "selective import declarations should parse: {parsed:?}");
+    }
+
+    #[test]
     fn parser_rejects_non_initial_module_declaration() {
         let source = "fn main() {}\nmodule other";
         let tokens = lex::tokenize(source, Path::new("<test>")).unwrap();
