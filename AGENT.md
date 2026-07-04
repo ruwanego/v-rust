@@ -48,10 +48,11 @@ Every session, before any code change:
 Completed:
 - 1.1 Comments
 - 1.2 Module declarations
+- 1.3 Imports (builtin allowlist resolution; selective imports parse-only)
 
-Next: **1.3 Imports**
+Next: **1.4 Function Return Types**
 
-Do not start 1.4 or later until 1.3 is promoted through L0 and L1.
+Do not start 1.5 or later until 1.4 is promoted through L0 and L1.
 
 ## Feature Micro-Loop
 
