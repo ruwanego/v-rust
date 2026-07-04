@@ -125,6 +125,9 @@ impl fmt::Display for SemaError {
     }
 }
 
+// ponytail: allowlist stands in for module loading until Phase 5 builds a real module graph
+const BUILTIN_MODULES: &[&str] = &["math", "os", "rand", "strings", "time"];
+
 pub struct SemanticAnalyzer {
     pub variables: HashMap<String, VarInfo>,
 }
@@ -151,10 +154,12 @@ impl SemanticAnalyzer {
         let mut functions = Vec::new();
 
         for import in &program.imports {
-            errors.push(error(
-                SemaErrorKind::UnresolvedImport { name: import.name.clone() },
-                import.name_span.clone(),
-            ));
+            if !BUILTIN_MODULES.contains(&import.name.as_str()) {
+                errors.push(error(
+                    SemaErrorKind::UnresolvedImport { name: import.name.clone() },
+                    import.name_span.clone(),
+                ));
+            }
         }
 
         for func in &program.functions {
