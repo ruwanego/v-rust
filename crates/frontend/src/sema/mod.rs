@@ -434,6 +434,16 @@ mod tests {
     }
 
     #[test]
+    fn analyzer_resolves_builtin_imports() {
+        let program = parse_program("import math\n\nfn main() {}");
+        let mut analyzer = SemanticAnalyzer::new();
+
+        let checked = analyzer.analyze(&program);
+
+        assert!(checked.is_ok(), "builtin import 'math' should resolve: {checked:?}");
+    }
+
+    #[test]
     fn analyzer_rejects_unresolved_imports() {
         let program = parse_program("import missing_module\n\nfn main() {}");
         let mut analyzer = SemanticAnalyzer::new();
