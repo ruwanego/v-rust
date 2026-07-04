@@ -2,7 +2,9 @@ pub mod ast;
 
 use crate::lex::Token;
 use crate::source::Span;
-use ast::{Expr, ExprKind, FunctionDecl, ImportDecl, ModuleDecl, Program, Stmt, StmtKind};
+use ast::{
+    Expr, ExprKind, FunctionDecl, ImportDecl, ImportSymbol, ModuleDecl, Program, Stmt, StmtKind,
+};
 use chumsky::prelude::*;
 
 #[must_use]
@@ -151,9 +153,21 @@ pub fn parser() -> impl Parser<Token, Program, Error = Simple<Token, Span>> {
         .ignore_then(identifier)
         .map_with_span(|(name, name_span), span: Span| ModuleDecl { name, name_span, span });
 
+    let import_symbols = identifier
+        .map(|(name, span)| ImportSymbol { name, span })
+        .separated_by(just(Token::Comma))
+        .at_least(1)
+        .delimited_by(just(Token::LBrace), just(Token::RBrace));
+
     let import_decl = just(Token::Import)
         .ignore_then(identifier)
-        .map_with_span(|(name, name_span), span: Span| ImportDecl { name, name_span, span });
+        .then(import_symbols.or_not())
+        .map_with_span(|((name, name_span), symbols), span: Span| ImportDecl {
+            name,
+            name_span,
+            symbols: symbols.unwrap_or_default(),
+            span,
+        });
 
     module_decl
         .or_not()
@@ -265,10 +279,19 @@ mod tests {
         // selective imports use `import module_name { symbol1, symbol2 }`.
         let source = "import math { min, max }\n\nfn main() {}";
         let tokens = lex::tokenize(source, Path::new("<test>")).unwrap();
-        let parsed =
-            parser().parse(Stream::from_iter(source.len()..source.len(), tokens.into_iter()));
+        let program = parser()
+            .parse(Stream::from_iter(source.len()..source.len(), tokens.into_iter()))
+            .unwrap();
 
-        assert!(parsed.is_ok(), "selective import declarations should parse: {parsed:?}");
+        assert_eq!(program.imports.len(), 1);
+        assert_eq!(program.imports[0].name, "math");
+        assert_eq!(program.imports[0].name_span, 7..11);
+        let symbols: Vec<_> =
+            program.imports[0].symbols.iter().map(|symbol| symbol.name.as_str()).collect();
+        assert_eq!(symbols, ["min", "max"]);
+        assert_eq!(program.imports[0].symbols[0].span, 14..17);
+        assert_eq!(program.imports[0].symbols[1].span, 19..22);
+        assert_eq!(program.imports[0].span, 0..24);
     }
 
     #[test]

@@ -19,6 +19,13 @@ pub struct ModuleDecl {
 pub struct ImportDecl {
     pub name: String,
     pub name_span: Span,
+    pub symbols: Vec<ImportSymbol>,
+    pub span: Span,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct ImportSymbol {
+    pub name: String,
     pub span: Span,
 }
 
