@@ -4,6 +4,7 @@ use crate::lex::Token;
 use crate::source::Span;
 use ast::{
     Expr, ExprKind, FunctionDecl, ImportDecl, ImportSymbol, ModuleDecl, Program, Stmt, StmtKind,
+    TypeName,
 };
 use chumsky::prelude::*;
 
@@ -116,6 +117,9 @@ pub fn parser() -> impl Parser<Token, Program, Error = Simple<Token, Span>> {
     });
 
     let stmt = choice((
+        just(Token::Return)
+            .ignore_then(expr.clone())
+            .map_with_span(|expr, span: Span| Stmt::new(StmtKind::Return { expr }, span)),
         just(Token::Mut)
             .or_not()
             .then(identifier)
@@ -137,14 +141,18 @@ pub fn parser() -> impl Parser<Token, Program, Error = Simple<Token, Span>> {
 
     let block = stmt.repeated().delimited_by(just(Token::LBrace), just(Token::RBrace));
 
+    let type_name = identifier.map(|(name, span)| TypeName { name, span });
+
     let function_decl = just(Token::Fn)
         .ignore_then(identifier)
         .then_ignore(just(Token::LParen))
         .then_ignore(just(Token::RParen))
+        .then(type_name.or_not())
         .then(block)
-        .map_with_span(|((name, name_span), body), span: Span| FunctionDecl {
+        .map_with_span(|(((name, name_span), return_type), body), span: Span| FunctionDecl {
             name,
             name_span,
+            return_type,
             body,
             span,
         });
@@ -303,5 +311,25 @@ mod tests {
             .unwrap_err();
 
         assert_eq!(errors[0].span(), 13..19);
+    }
+
+    #[test]
+    fn parser_accepts_function_return_type_and_return_statement_from_functions_docs() {
+        // V docs: https://docs.vlang.io/functions.html#functions,
+        // return types follow `fn name()` and return statements yield values.
+        let source = "fn answer() int { return 42 }";
+        let tokens = lex::tokenize(source, Path::new("<test>")).unwrap();
+        let program = parser()
+            .parse(Stream::from_iter(source.len()..source.len(), tokens.into_iter()))
+            .unwrap();
+
+        let func = &program.functions[0];
+        assert_eq!(func.return_type.as_ref().unwrap().name, "int");
+        assert_eq!(func.return_type.as_ref().unwrap().span, 12..15);
+        assert!(matches!(
+            &func.body[0].kind,
+            StmtKind::Return { expr } if matches!(expr.kind, ExprKind::IntLiteral(42))
+        ));
+        assert_eq!(func.body[0].span, 18..27);
     }
 }

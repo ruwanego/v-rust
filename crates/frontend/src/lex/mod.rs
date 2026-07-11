@@ -20,6 +20,9 @@ pub enum Token {
     #[token("import")]
     Import,
 
+    #[token("return")]
+    Return,
+
     #[regex("[a-zA-Z_][a-zA-Z0-9_]*", |lex| lex.slice().to_string())]
     Identifier(String),
 
@@ -200,5 +203,13 @@ mod tests {
 
         assert_eq!(tokens[0], (Token::Import, 0..6));
         assert_eq!(tokens[1], (Token::Identifier("os".to_string()), 7..9));
+    }
+
+    #[test]
+    fn tokenizes_return_keyword() {
+        let tokens = tokenize("return 42", Path::new("<test>")).unwrap();
+
+        assert_eq!(tokens[0], (Token::Return, 0..6));
+        assert_eq!(tokens[1], (Token::IntLiteral(42), 7..9));
     }
 }

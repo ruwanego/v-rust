@@ -1,4 +1,4 @@
-use crate::parse::ast::{BinaryOp, Expr, ExprKind, Program, Stmt, StmtKind, UnaryOp};
+use crate::parse::ast::{BinaryOp, Expr, ExprKind, Program, Stmt, StmtKind, TypeName, UnaryOp};
 use crate::source::Span;
 use crate::types::Type;
 use std::collections::HashMap;
@@ -12,6 +12,7 @@ pub struct CheckedProgram {
 #[derive(Debug, Clone, PartialEq)]
 pub struct CheckedFunction {
     pub name: String,
+    pub return_type: Type,
     pub body: Vec<CheckedStmt>,
 }
 
@@ -20,6 +21,7 @@ pub enum CheckedStmt {
     ExprStmt { expr: CheckedExpr, span: Span },
     VarDecl { name: String, is_mut: bool, typ: Type, expr: CheckedExpr, span: Span },
     Assign { name: String, typ: Type, expr: CheckedExpr, span: Span },
+    Return { expr: CheckedExpr, span: Span },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -53,6 +55,9 @@ pub enum SemaErrorKind {
     UndeclaredVariable { name: String },
     UnresolvedImport { name: String },
     TypeMismatch { name: String, expected: Type, actual: Type },
+    ReturnTypeMismatch { expected: Type, actual: Type },
+    MissingReturn { name: String, expected: Type },
+    UnknownType { name: String },
     UnknownFunction { name: String },
     InvalidArithmeticOperands { op: BinaryOp, left: Type, right: Type },
     InvalidEqualityOperands { op: BinaryOp, left: Type, right: Type },
@@ -87,6 +92,18 @@ impl fmt::Display for SemaError {
                     formatter,
                     "Type mismatch: cannot assign type '{actual}' to variable '{name}' of type '{expected}'."
                 )
+            }
+            SemaErrorKind::ReturnTypeMismatch { expected, actual } => {
+                write!(
+                    formatter,
+                    "Type mismatch: cannot return type '{actual}' from a function returning '{expected}'."
+                )
+            }
+            SemaErrorKind::MissingReturn { name, expected } => {
+                write!(formatter, "Function '{name}' must return a value of type '{expected}'.")
+            }
+            SemaErrorKind::UnknownType { name } => {
+                write!(formatter, "Unknown type '{name}'.")
             }
             SemaErrorKind::UnknownFunction { name } => {
                 write!(formatter, "Unknown function '{name}'.")
@@ -130,11 +147,16 @@ const BUILTIN_MODULES: &[&str] = &["math", "os", "rand", "strings", "time"];
 
 pub struct SemanticAnalyzer {
     pub variables: HashMap<String, VarInfo>,
+    pub functions: HashMap<String, FunctionInfo>,
 }
 
 pub struct VarInfo {
     pub is_mut: bool,
     pub typ: Type,
+}
+
+pub struct FunctionInfo {
+    pub return_type: Type,
 }
 
 impl Default for SemanticAnalyzer {
@@ -146,12 +168,13 @@ impl Default for SemanticAnalyzer {
 impl SemanticAnalyzer {
     #[must_use]
     pub fn new() -> Self {
-        SemanticAnalyzer { variables: HashMap::new() }
+        SemanticAnalyzer { variables: HashMap::new(), functions: HashMap::new() }
     }
 
     pub fn analyze(&mut self, program: &Program) -> Result<CheckedProgram, Vec<SemaError>> {
         let mut errors = Vec::new();
         let mut functions = Vec::new();
+        self.functions.clear();
 
         for import in &program.imports {
             if !BUILTIN_MODULES.contains(&import.name.as_str()) {
@@ -164,16 +187,33 @@ impl SemanticAnalyzer {
 
         for func in &program.functions {
             self.variables.clear();
+            let return_type = match resolve_return_type(func.return_type.as_ref()) {
+                Ok(return_type) => return_type,
+                Err(err) => {
+                    errors.push(err);
+                    continue;
+                }
+            };
+            self.functions.insert(func.name.clone(), FunctionInfo { return_type });
             let mut body = Vec::new();
 
             for stmt in &func.body {
-                match self.analyze_stmt(stmt) {
+                match self.analyze_stmt(stmt, return_type) {
                     Ok(checked_stmt) => body.push(checked_stmt),
                     Err(error) => errors.push(error),
                 }
             }
 
-            functions.push(CheckedFunction { name: func.name.clone(), body });
+            if return_type != Type::Void
+                && !body.iter().any(|stmt| matches!(stmt, CheckedStmt::Return { .. }))
+            {
+                errors.push(error(
+                    SemaErrorKind::MissingReturn { name: func.name.clone(), expected: return_type },
+                    func.name_span.clone(),
+                ));
+            }
+
+            functions.push(CheckedFunction { name: func.name.clone(), return_type, body });
         }
 
         if errors.is_empty() {
@@ -183,7 +223,11 @@ impl SemanticAnalyzer {
         }
     }
 
-    fn analyze_stmt(&mut self, stmt: &Stmt) -> Result<CheckedStmt, SemaError> {
+    fn analyze_stmt(
+        &mut self,
+        stmt: &Stmt,
+        function_return_type: Type,
+    ) -> Result<CheckedStmt, SemaError> {
         match stmt {
             Stmt { kind: StmtKind::ExprStmt(expr), span } => {
                 Ok(CheckedStmt::ExprStmt { expr: self.analyze_expr(expr)?, span: span.clone() })
@@ -242,6 +286,20 @@ impl SemanticAnalyzer {
                     span: span.clone(),
                 })
             }
+            Stmt { kind: StmtKind::Return { expr }, span } => {
+                let checked_expr = self.analyze_expr(expr)?;
+                if checked_expr.typ != function_return_type {
+                    return Err(error(
+                        SemaErrorKind::ReturnTypeMismatch {
+                            expected: function_return_type,
+                            actual: checked_expr.typ,
+                        },
+                        expr.span.clone(),
+                    ));
+                }
+
+                Ok(CheckedStmt::Return { expr: checked_expr, span: span.clone() })
+            }
         }
     }
 
@@ -274,18 +332,24 @@ impl SemanticAnalyzer {
                 ))
             }
             ExprKind::FunctionCall { name, args } => {
-                if name != "println" {
-                    return Err(error(
-                        SemaErrorKind::UnknownFunction { name: name.clone() },
-                        expr.span.clone(),
-                    ));
-                }
-
                 let checked_args =
                     args.iter().map(|arg| self.analyze_expr(arg)).collect::<Result<Vec<_>, _>>()?;
+                let return_type = if name == "println" {
+                    Type::Void
+                } else {
+                    self.functions
+                        .get(name)
+                        .ok_or_else(|| {
+                            error(
+                                SemaErrorKind::UnknownFunction { name: name.clone() },
+                                expr.span.clone(),
+                            )
+                        })?
+                        .return_type
+                };
 
                 Ok(checked_expr(
-                    Type::Void,
+                    return_type,
                     expr.span.clone(),
                     CheckedExprKind::FunctionCall { name: name.clone(), args: checked_args },
                 ))
@@ -322,6 +386,21 @@ impl SemanticAnalyzer {
 
 fn checked_expr(typ: Type, span: Span, kind: CheckedExprKind) -> CheckedExpr {
     CheckedExpr { typ, span, kind }
+}
+
+fn resolve_return_type(return_type: Option<&TypeName>) -> Result<Type, SemaError> {
+    let Some(return_type) = return_type else {
+        return Ok(Type::Void);
+    };
+
+    match return_type.name.as_str() {
+        "int" => Ok(Type::I64),
+        "bool" => Ok(Type::Bool),
+        other => Err(error(
+            SemaErrorKind::UnknownType { name: other.to_string() },
+            return_type.span.clone(),
+        )),
+    }
 }
 
 fn check_binary_op(op: BinaryOp, left: Type, right: Type, span: Span) -> Result<Type, SemaError> {
@@ -460,6 +539,28 @@ mod tests {
             SemaErrorKind::UnresolvedImport { name: "missing_module".to_string() }
         );
         assert_eq!(errors[0].span, 7..21);
+    }
+
+    #[test]
+    fn analyzer_accepts_int_return_function_from_functions_docs() {
+        // V docs: https://docs.vlang.io/functions.html#functions,
+        // function return types follow the parameter list and `return` yields that type.
+        let program =
+            parse_program("fn answer() int { return 42 }\nfn main() { println(answer()) }");
+        let mut analyzer = SemanticAnalyzer::new();
+
+        let checked = analyzer.analyze(&program).unwrap();
+
+        assert_eq!(checked.functions[0].name, "answer");
+        assert_eq!(checked.functions[0].return_type, Type::I64);
+        assert!(matches!(
+            checked.functions[0].body[0],
+            CheckedStmt::Return { expr: CheckedExpr { typ: Type::I64, .. }, .. }
+        ));
+        assert!(matches!(
+            checked.functions[1].body[0],
+            CheckedStmt::ExprStmt { expr: CheckedExpr { typ: Type::Void, .. }, .. }
+        ));
     }
 
     fn parse_program(source: &str) -> Program {

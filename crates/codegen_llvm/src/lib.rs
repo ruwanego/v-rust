@@ -5,6 +5,7 @@
 use codegen_traits::{BackendError, CodegenBackend};
 use frontend::parse::ast::{BinaryOp, UnaryOp};
 use frontend::sema::{CheckedExpr, CheckedExprKind, CheckedProgram, CheckedStmt};
+use frontend::types::Type;
 use inkwell::context::Context;
 use inkwell::module::Module;
 use inkwell::targets::{
@@ -42,7 +43,15 @@ impl<'ctx> CodeGen<'ctx> {
         let printf_func = self.module.add_function("printf", printf_type, None);
 
         for func in &program.functions {
-            let fn_type = i32_type.fn_type(&[], false);
+            let fn_type = if func.name == "main" {
+                i32_type.fn_type(&[], false)
+            } else {
+                match func.return_type {
+                    Type::Void | Type::String => self.context.void_type().fn_type(&[], false),
+                    Type::Bool => self.context.bool_type().fn_type(&[], false),
+                    Type::I64 => self.context.i64_type().fn_type(&[], false),
+                }
+            };
             let function = self.module.add_function(&func.name, fn_type, None);
             let basic_block = self.context.append_basic_block(function, "entry");
 
@@ -55,9 +64,14 @@ impl<'ctx> CodeGen<'ctx> {
                 self.generate_stmt(stmt, printf_func, &mut env);
             }
 
-            // return 0;
-            let zero = i32_type.const_int(0, false);
-            let _ = self.builder.build_return(Some(&zero));
+            if self.builder.get_insert_block().and_then(|block| block.get_terminator()).is_none() {
+                if func.name == "main" {
+                    let zero = i32_type.const_int(0, false);
+                    let _ = self.builder.build_return(Some(&zero));
+                } else {
+                    let _ = self.builder.build_return(None);
+                }
+            }
         }
     }
 
@@ -121,6 +135,13 @@ impl<'ctx> CodeGen<'ctx> {
                     }
                 } else {
                     unreachable!("Sema should have caught undefined variable: {}", name);
+                }
+            }
+            CheckedStmt::Return { expr, span: _ } => {
+                if let Some(val) = self.generate_expr(expr, env) {
+                    let _ = self.builder.build_return(Some(&val));
+                } else {
+                    let _ = self.builder.build_return(None);
                 }
             }
         }
@@ -194,7 +215,18 @@ impl<'ctx> CodeGen<'ctx> {
                 };
                 Some(res.into())
             }
-            CheckedExprKind::FunctionCall { .. } => None, // for now, func calls return nothing
+            CheckedExprKind::FunctionCall { name, args } => {
+                let function = self
+                    .module
+                    .get_function(name)
+                    .unwrap_or_else(|| unreachable!("Sema should have caught: {name}"));
+                let arg_values = args
+                    .iter()
+                    .filter_map(|arg| self.generate_expr(arg, env).map(Into::into))
+                    .collect::<Vec<_>>();
+                let call = self.builder.build_call(function, &arg_values, "calltmp").unwrap();
+                call.try_as_basic_value().left()
+            }
         }
     }
 

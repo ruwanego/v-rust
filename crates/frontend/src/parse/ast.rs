@@ -33,7 +33,14 @@ pub struct ImportSymbol {
 pub struct FunctionDecl {
     pub name: String,
     pub name_span: Span,
+    pub return_type: Option<TypeName>,
     pub body: Vec<Stmt>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TypeName {
+    pub name: String,
     pub span: Span,
 }
 
@@ -55,6 +62,7 @@ pub enum StmtKind {
     ExprStmt(Expr),
     VarDecl { name: String, name_span: Span, is_mut: bool, expr: Expr },
     Assign { name: String, name_span: Span, expr: Expr },
+    Return { expr: Expr },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

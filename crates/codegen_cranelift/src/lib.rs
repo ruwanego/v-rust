@@ -12,7 +12,7 @@ use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};
 use cranelift_module::{DataDescription, FuncId, Linkage, Module};
 use cranelift_object::{ObjectBuilder, ObjectModule};
 use frontend::parse::ast::{BinaryOp, UnaryOp};
-use frontend::sema::{CheckedExpr, CheckedExprKind, CheckedProgram, CheckedStmt};
+use frontend::sema::{CheckedExpr, CheckedExprKind, CheckedFunction, CheckedProgram, CheckedStmt};
 use frontend::types::Type;
 use std::collections::HashMap;
 use std::path::Path;
@@ -59,15 +59,23 @@ pub fn emit_object(program: &CheckedProgram) -> Result<Vec<u8>, String> {
         .map_err(|e| e.to_string())?;
 
     let mut fn_builder_ctx = FunctionBuilderContext::new();
+    let mut function_ids = HashMap::new();
+
+    for func in &program.functions {
+        let sig = signature_for_function(&mut module, func);
+
+        let func_id = module
+            .declare_function(&func.name, Linkage::Export, &sig)
+            .map_err(|e| e.to_string())?;
+        function_ids.insert(func.name.clone(), func_id);
+    }
 
     for func in &program.functions {
         let mut ctx = module.make_context();
-        ctx.func.signature.returns.push(AbiParam::new(types::I32));
-
-        let func_id = module
-            .declare_function(&func.name, Linkage::Export, &ctx.func.signature)
-            .map_err(|e| e.to_string())?;
-
+        ctx.func.signature = signature_for_function(&mut module, func);
+        let func_id = *function_ids
+            .get(&func.name)
+            .unwrap_or_else(|| unreachable!("function should be declared: {}", func.name));
         {
             let mut builder = FunctionBuilder::new(&mut ctx.func, &mut fn_builder_ctx);
             let entry = builder.create_block();
@@ -81,14 +89,24 @@ pub fn emit_object(program: &CheckedProgram) -> Result<Vec<u8>, String> {
                 printf_id,
                 ptr_type,
                 env: HashMap::new(),
+                functions: &function_ids,
+                current_return_type: func.return_type,
+                current_function_name: &func.name,
+                returned: false,
             };
 
             for stmt in &func.body {
                 gen.stmt(stmt)?;
             }
 
-            let zero = gen.builder.ins().iconst(types::I32, 0);
-            gen.builder.ins().return_(&[zero]);
+            if !gen.returned {
+                if func.name == "main" {
+                    let zero = gen.builder.ins().iconst(types::I32, 0);
+                    gen.builder.ins().return_(&[zero]);
+                } else {
+                    gen.builder.ins().return_(&[]);
+                }
+            }
             gen.builder.finalize();
         }
 
@@ -98,12 +116,34 @@ pub fn emit_object(program: &CheckedProgram) -> Result<Vec<u8>, String> {
     module.finish().emit().map_err(|e| e.to_string())
 }
 
+fn signature_for_function(module: &mut ObjectModule, func: &CheckedFunction) -> Signature {
+    let mut sig = module.make_signature();
+    if func.name == "main" {
+        sig.returns.push(AbiParam::new(types::I32));
+    } else if let Some(return_type) = cranelift_type(func.return_type) {
+        sig.returns.push(AbiParam::new(return_type));
+    }
+    sig
+}
+
+fn cranelift_type(typ: Type) -> Option<cranelift_codegen::ir::Type> {
+    match typ {
+        Type::Void | Type::String => None,
+        Type::Bool => Some(types::I8),
+        Type::I64 => Some(types::I64),
+    }
+}
+
 struct FunctionGen<'a> {
     module: &'a mut ObjectModule,
     builder: FunctionBuilder<'a>,
     printf_id: FuncId,
     ptr_type: cranelift_codegen::ir::Type,
     env: HashMap<String, Variable>,
+    functions: &'a HashMap<String, FuncId>,
+    current_return_type: Type,
+    current_function_name: &'a str,
+    returned: bool,
 }
 
 impl FunctionGen<'_> {
@@ -135,6 +175,19 @@ impl FunctionGen<'_> {
                 if let Some(val) = self.expr(expr)? {
                     self.builder.def_var(var, val);
                 }
+                Ok(())
+            }
+            CheckedStmt::Return { expr, span: _ } => {
+                let Some(val) = self.expr(expr)? else {
+                    return Err("return expression produced no value".to_string());
+                };
+                if self.current_function_name == "main" && self.current_return_type == Type::I64 {
+                    let narrowed = self.builder.ins().ireduce(types::I32, val);
+                    self.builder.ins().return_(&[narrowed]);
+                } else {
+                    self.builder.ins().return_(&[val]);
+                }
+                self.returned = true;
                 Ok(())
             }
         }
@@ -236,7 +289,22 @@ impl FunctionGen<'_> {
                 };
                 Some(res)
             }
-            CheckedExprKind::FunctionCall { .. } => None,
+            CheckedExprKind::FunctionCall { name, args } => {
+                let func_id = *self
+                    .functions
+                    .get(name)
+                    .unwrap_or_else(|| unreachable!("Sema should have caught: {name}"));
+                let callee = self.module.declare_func_in_func(func_id, self.builder.func);
+                let arg_values = args
+                    .iter()
+                    .map(|arg| {
+                        self.expr(arg)?
+                            .ok_or_else(|| "function argument produced no value".to_string())
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                let call = self.builder.ins().call(callee, &arg_values);
+                self.builder.inst_results(call).first().copied()
+            }
         };
         Ok(val)
     }
