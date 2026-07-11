@@ -1,5 +1,9 @@
 default: ci
 
+# Refresh the GitNexus knowledge graph after structural changes.
+reindex:
+    pnpm --allow-build=@ladybugdb/core --allow-build=gitnexus --allow-build=tree-sitter dlx gitnexus@latest analyze
+
 fmt:
     cargo fmt --all -- --check
 

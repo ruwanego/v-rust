@@ -124,7 +124,12 @@ the merge-queue heavy path.
 3. Done: move the current Inkwell implementation into `crates/codegen_llvm`
    behind the root `codegen` feature; the root package no longer depends on
    Inkwell directly.
-4. Move `src/driver` and `src/main.rs` into `crates/driver`.
+4. Done (by decision, not by move): the root `v-rust` package is the driver
+   crate. After steps 2–3 it contains only the CLI, the pipeline
+   orchestration in `src/compiler.rs`, the test runner, and the test
+   harness that resolves the `v-rust` binary. Physically relocating it to
+   `crates/driver` is deferred until it blocks something; revisit after
+   step 8.
 5. Add `crates/codegen_cranelift` with the smallest executable backend.
    Emit object code with `cranelift-object`; link with the platform linker
    (MSVC `link.exe` on Windows, `cc` on Unix), not clang.
