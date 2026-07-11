@@ -33,12 +33,13 @@ repository. Read it completely before writing any code.
    (release tag in `tests/v_repo_ref.txt`) is the tie-breaker.
 
 7. **No doc drift.** If a change makes any statement in `AGENT.md`,
-   `CLAUDE.md`, `AGENTS.md`, `ARCHITECTURE_MAPPING.md`, or `docs/` false,
-   fix that statement in the same commit. `CLAUDE.md` and `AGENTS.md` must
-   stay byte-identical — after editing one, copy it over the other. Before
-   ending a work session, re-read the "Current Phase" section above and the
-   Migration Order in `docs/repository-strategy.md` and update them to
-   match reality.
+   `AGENTS.md`, `ARCHITECTURE_MAPPING.md`, or `docs/` false, fix that
+   statement in the same commit. `AGENTS.md` is the single canonical
+   entry-point for all coding agents; `CLAUDE.md` must contain only the
+   `@AGENTS.md` import line (plus any auto-generated GitNexus block) —
+   never duplicate content into it. Before ending a work session, re-read
+   the "Current Phase" section above and the Migration Order in
+   `docs/repository-strategy.md` and update them to match reality.
 
 ## Pre-Flight Checklist
 
