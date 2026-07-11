@@ -1,5 +1,7 @@
 default: ci
 
+set windows-shell := ["pwsh.exe", "-NoProfile", "-Command"]
+
 # Refresh the GitNexus knowledge graph after structural changes.
 reindex:
     pnpm --allow-build=@ladybugdb/core --allow-build=gitnexus --allow-build=tree-sitter dlx gitnexus@latest analyze
