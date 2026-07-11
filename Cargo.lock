@@ -193,6 +193,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c8d4a3bb8b1e0c1050499d1815f5ab16d04f0959b233085fb31653fbfc9d98f9"
 
 [[package]]
+name = "codegen_llvm"
+version = "0.1.0"
+dependencies = [
+ "codegen_traits",
+ "frontend",
+ "inkwell",
+ "tempfile",
+]
+
+[[package]]
 name = "codegen_traits"
 version = "0.1.0"
 dependencies = [
@@ -671,9 +681,9 @@ version = "0.1.0"
 dependencies = [
  "assert_cmd",
  "clap",
+ "codegen_llvm",
  "codegen_traits",
  "frontend",
- "inkwell",
  "libtest-mimic",
  "tempfile",
  "walkdir",

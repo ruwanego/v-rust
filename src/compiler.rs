@@ -36,7 +36,7 @@ pub fn compile_file(input: &Path, output: &Path) -> Result<(), String> {
     {
         use codegen_traits::CodegenBackend as _;
 
-        crate::codegen::LlvmBackend.compile(&checked_program, output).map_err(|e| e.to_string())?;
+        codegen_llvm::LlvmBackend.compile(&checked_program, output).map_err(|e| e.to_string())?;
     }
 
     #[cfg(not(feature = "codegen"))]

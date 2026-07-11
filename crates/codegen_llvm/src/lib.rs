@@ -1,3 +1,7 @@
+//! LLVM/Inkwell implementation of the `codegen_traits` backend contract.
+
+#![forbid(unsafe_code)]
+
 use codegen_traits::{BackendError, CodegenBackend};
 use frontend::parse::ast::{BinaryOp, UnaryOp};
 use frontend::sema::{CheckedExpr, CheckedExprKind, CheckedProgram, CheckedStmt};
