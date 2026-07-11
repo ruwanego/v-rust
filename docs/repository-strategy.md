@@ -101,13 +101,14 @@ The repository is currently a Cargo workspace with:
 1. Frontend modules in `crates/frontend/src/lex`,
    `crates/frontend/src/parse`, and `crates/frontend/src/sema`.
 2. Frontend semantic analysis returns typed checked output for backends.
-3. LLVM/Inkwell code generation still in the root package at `src/codegen`.
-4. CLI and test harness modules still in the root package at `src/driver`.
+3. Backend contract in `crates/codegen_traits`; Cranelift (default backend)
+   in `crates/codegen_cranelift`; LLVM/Inkwell (opt-in `llvm` feature) in
+   `crates/codegen_llvm`.
+4. CLI, pipeline orchestration, and test harness in the root `v-rust`
+   package, which serves as the driver crate.
 
-The migration to the target workspace must continue as short, reviewable trunk
-branches. Do not combine the frontend split, backend trait extraction,
-Cranelift backend, LLVM backend extraction, and snapshot testing in one pull
-request.
+Remaining migration work must continue as short, reviewable trunk branches,
+one step per pull request.
 
 ## Migration Order
 
@@ -183,10 +184,8 @@ Target behavior:
 5. Tiny V fixtures.
 6. Official subset.
 7. Vlib subset.
-8. Cranelift backend only once Cranelift exists.
-
-Until `codegen_cranelift` exists, the fast path keeps using the current backend
-so the repository remains protected by executable fixtures.
+8. Cranelift backend only; `codegen_llvm` is excluded from the fast path and
+   covered by the weekly `llvm-parity` lane.
 
 ### Merge Queue Heavy Path
 

@@ -216,10 +216,10 @@ Use this exact loop for every compiler feature:
 17. Leave the full vlib and full official suites running as non-blocking
     telemetry.
 
-The local `just ci` gate (natively, or `docker compose run --rm app just ci`
-on machines without LLVM 15) is the red/green inner loop. GitHub Actions is
-the merge gate: a feature is done only when CI is green, but pushing is never
-how you discover whether a test is red.
+The local `just ci` gate is the red/green inner loop; it runs natively on any
+machine because Cranelift is the default backend (no LLVM install). GitHub
+Actions is the merge gate: a feature is done only when CI is green, but
+pushing is never how you discover whether a test is red.
 
 ## Current Baseline
 
@@ -233,7 +233,8 @@ The compiler currently supports only a tiny subset:
 6. local variable declarations with `:=`
 7. mutable local assignment with `mut`
 8. `println(...)` as a builtin
-9. native binary generation through LLVM and clang
+9. native binary generation through Cranelift and the platform linker
+   (LLVM remains as an opt-in parity backend)
 10. typed semantic output through `frontend::sema::CheckedProgram`
 11. primitive frontend `Type` values instead of stringly semantic type names
 12. byte spans on parser AST nodes used by semantic diagnostics
@@ -294,7 +295,7 @@ generated binary, but it does not yet synthesize or execute V test functions.
 3. Enforce arity.
 4. Enforce argument types.
 5. Bind parameters in function scope.
-6. Generate LLVM function params.
+6. Generate backend function params (Cranelift first).
 7. Add tiny pass fixture for `fn add(x int, y int) int`.
 8. Add tiny fail fixture for wrong arity.
 

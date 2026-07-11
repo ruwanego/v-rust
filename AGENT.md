@@ -32,6 +32,14 @@ repository. Read it completely before writing any code.
    When docs are ambiguous, the behavior of the pinned official `v` compiler
    (release tag in `tests/v_repo_ref.txt`) is the tie-breaker.
 
+7. **No doc drift.** If a change makes any statement in `AGENT.md`,
+   `CLAUDE.md`, `AGENTS.md`, `ARCHITECTURE_MAPPING.md`, or `docs/` false,
+   fix that statement in the same commit. `CLAUDE.md` and `AGENTS.md` must
+   stay byte-identical — after editing one, copy it over the other. Before
+   ending a work session, re-read the "Current Phase" section above and the
+   Migration Order in `docs/repository-strategy.md` and update them to
+   match reality.
+
 ## Pre-Flight Checklist
 
 Before touching any `.rs` or `.toml` file, answer these in order:
@@ -75,7 +83,7 @@ on a machine with no LLVM.
 ## Feature Micro-Loop
 
 Follow this exactly. Do not compress or reorder steps. All red/green checks
-run locally (natively or via `docker compose run --rm app just <recipe>`).
+run locally with `just <recipe>`; no LLVM or Docker is needed.
 
 1. Identify the single V semantic rule. Record the official doc URL and
    section in the commit message or PR description.
@@ -150,6 +158,8 @@ Stop immediately and do not proceed if any of the following is true:
   test is not actually testing the new behavior — something is wrong).
 - The implementation spans more than one V semantic rule.
 - A refactor is mixed into a feature commit.
+- A binding doc still describes the pre-change behavior after your commit
+  (see rule 7: fix the doc in the same commit).
 
 ## Promotion Checklist
 

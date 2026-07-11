@@ -2,3 +2,6 @@
 
 # ignore downloaded V repo
 tests/v_official_repo/
+
+# local Claude Code settings
+.claude/settings.local.json
