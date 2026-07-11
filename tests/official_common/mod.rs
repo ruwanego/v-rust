@@ -7,14 +7,28 @@ fn v_rust_command() -> Command {
     Command::cargo_bin("v-rust").expect("v-rust binary should be built by cargo test")
 }
 
+/// Pinned ref for the official V corpus so the acceptance suite is
+/// deterministic. Bump by editing tests/v_repo_ref.txt, then delete
+/// tests/v_official_repo and re-run.
+const V_REPO_REF: &str = include_str!("../v_repo_ref.txt");
+
 pub fn ensure_official_repo(repo_dir: &Path) {
     if repo_dir.exists() {
         return;
     }
 
-    println!("Downloading official V tests (RED GREEN REFACTOR)...");
+    let repo_ref = V_REPO_REF.trim();
+    println!("Downloading official V tests at {repo_ref} (RED GREEN REFACTOR)...");
     let status = StdCommand::new("git")
-        .args(["clone", "--depth", "1", "https://github.com/vlang/v", repo_dir.to_str().unwrap()])
+        .args([
+            "clone",
+            "--depth",
+            "1",
+            "--branch",
+            repo_ref,
+            "https://github.com/vlang/v",
+            repo_dir.to_str().unwrap(),
+        ])
         .status()
         .expect("Failed to clone official V repository");
 

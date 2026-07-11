@@ -5,16 +5,30 @@ on:
   schedule:
     - cron: "0 3 * * 0"
 
+env:
+  LLVM_SYS_150_PREFIX: /usr/lib/llvm-15
+  CARGO_TERM_COLOR: always
+
 jobs:
   full-suite-progress:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
 
+      - name: Install LLVM 15 toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y llvm-15-dev libclang-15-dev clang-15 \
+            libzstd-dev zlib1g-dev
+
+      - uses: extractions/setup-just@v2
+
+      - uses: Swatinem/rust-cache@v2
+
       - name: Run vlib suite progress log
         continue-on-error: true
-        run: docker compose run --rm app just vlib-full -- --nocapture
+        run: just vlib-full -- --nocapture
 
       - name: Run full official suite progress log
         continue-on-error: true
-        run: docker compose run --rm app just official-full -- --nocapture
+        run: just official-full -- --nocapture

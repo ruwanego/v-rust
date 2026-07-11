@@ -5,12 +5,17 @@ repository. Read it completely before writing any code.
 
 ## Non-Negotiable Rules
 
-1. **Testing never happens locally.** Do not run `cargo test`, `just unit`,
-   `just tiny`, or any test command in the local shell. The local environment
-   is not the source of truth. CI is.
+1. **Local `just ci` is the inner loop.** Run tests locally at every red/green
+   step. On a machine without native LLVM 15 (e.g. Windows), run the same
+   gate through Docker:
+   ```
+   docker compose run --rm app just ci
+   ```
+   Never push to CI just to find out whether a test is red or green.
 
-2. **CI is the only oracle.** After every push, check CI with `gh`. A green
-   local build means nothing. A green CI run means the change is correct.
+2. **GitHub CI is the merge gate, not the test runner.** Push once per
+   completed feature loop, then confirm CI is green with `gh` before merging.
+   A feature is done only when GitHub CI is green.
 
 3. **One feature per branch per PR.** No combining language features,
    refactors, and migration steps in one commit.
@@ -21,6 +26,11 @@ repository. Read it completely before writing any code.
 5. **Update `ARCHITECTURE_MAPPING.md` before writing implementation code.**
    If a new feature has no clear Rust home in that file, add one first. The
    mapping update and the implementation must not be in the same commit.
+
+6. **Behavior comes from the official V docs and the pinned V corpus, never
+   from memory.** Every feature records the official doc URL and section.
+   When docs are ambiguous, the behavior of the pinned official `v` compiler
+   (release tag in `tests/v_repo_ref.txt`) is the tie-breaker.
 
 ## Pre-Flight Checklist
 
@@ -56,34 +66,30 @@ Do not start 1.5 or later until 1.4 is promoted through L0 and L1.
 
 ## Feature Micro-Loop
 
-Follow this exactly. Do not compress or reorder steps.
+Follow this exactly. Do not compress or reorder steps. All red/green checks
+run locally (natively or via `docker compose run --rm app just <recipe>`).
 
 1. Identify the single V semantic rule. Record the official doc URL and
-   section.
+   section in the commit message or PR description.
 2. Confirm the feature is in the current phase of `docs/tdd-roadmap.md`.
 3. Identify or add the Rust semantic home in `ARCHITECTURE_MAPPING.md`.
-4. Write one failing Rust unit test (L0). Do not implement yet.
-5. Push. Check CI:
-   ```
-   gh run list --limit 5
-   gh run view <run-id> --log-failed
-   ```
-   CI must be red at the expected test. If CI is green, the test is wrong.
-6. Write one failing tiny V fixture (L1). Do not implement yet.
-7. Push. Check CI. CI must be red at the expected fixture.
-8. Write the smallest implementation that satisfies both failures.
-9. Push. Check CI. `just ci` must be fully green.
-   ```
-   gh run list --limit 5
-   gh run view <run-id>
-   ```
-10. Refactor only after green. Push. Verify CI stays green.
-11. Inspect full-suite progress:
+4. Write one failing Rust unit test (L0). Run `just unit` — it must fail at
+   exactly that test. If it passes, the test is wrong.
+5. Write one failing tiny V fixture (L1). Run `just tiny` — it must fail at
+   exactly that fixture.
+6. Write the smallest implementation that satisfies both failures.
+7. Run `just ci` locally. It must be fully green.
+8. Refactor only after green. Run `just ci` again.
+9. If a relevant official or vlib test is now supported, add exactly one path
+   to `tests/official_subset.txt` or `tests/vlib_subset.txt` and re-run
+   `just ci`.
+10. Commit (feature and promotion may be separate commits) and push once.
+11. Verify GitHub CI is green before merging:
     ```
-    gh run list --workflow=progress.yml --limit 3
+    gh run list --limit 5
+    gh run watch <run-id>
+    gh run view <run-id> --log-failed
     ```
-12. If a relevant official test now passes, add exactly one path to
-    `tests/official_subset.txt`. Push. Verify CI green.
 
 ## CI Commands
 
@@ -130,8 +136,8 @@ Stop immediately and do not proceed if any of the following is true:
 - The feature is not in the current phase of `docs/tdd-roadmap.md`.
 - `ARCHITECTURE_MAPPING.md` has no home for the feature and has not been
   updated.
-- CI is green before the red test was pushed (the test is not actually
-  failing — something is wrong).
+- The new L0 test or L1 fixture passes before the implementation exists (the
+  test is not actually testing the new behavior — something is wrong).
 - The implementation spans more than one V semantic rule.
 - A refactor is mixed into a feature commit.
 
@@ -142,6 +148,6 @@ Before adding a path to `tests/official_subset.txt` or
 
 - [ ] L0 unit test covers the core compiler rule.
 - [ ] L1 tiny fixture proves executable behavior or expected rejection.
-- [ ] `just ci` is green in GitHub Actions (verified with `gh`).
+- [ ] `just ci` is green locally, then in GitHub Actions (verified with `gh`).
 - [ ] The official file does not depend on unsupported syntax.
 - [ ] Only one path is promoted per commit.

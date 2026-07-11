@@ -197,13 +197,13 @@ Use this exact loop for every compiler feature:
 2. Write down the doc page and section in the issue, PR, or commit notes.
 3. Identify the Rust semantic home in `ARCHITECTURE_MAPPING.md`.
 4. Add or update one Rust unit test.
-5. Push and verify the Rust unit test fails in GitHub CI.
+5. Run `just unit` locally and verify it fails at exactly that test.
 6. Add or update one tiny V fixture for the same behavior.
-7. Push and verify the tiny fixture fails in GitHub CI.
+7. Run `just tiny` locally and verify it fails at exactly that fixture.
 8. Implement the smallest compiler change that can satisfy both failures.
-9. Push and verify `just ci` is green in GitHub CI.
+9. Run `just ci` locally and verify it is fully green.
 10. Refactor only after green.
-11. Push and verify `just ci` stays green in GitHub CI.
+11. Run `just ci` locally again and verify it stays green.
 12. Inspect the full official suite progress log.
 13. Inspect the vlib progress log when the feature touches standard-library
     behavior.
@@ -211,12 +211,15 @@ Use this exact loop for every compiler feature:
     `tests/official_subset.txt`.
 15. If a relevant vlib test is now supported, add exactly one path to
     `tests/vlib_subset.txt`.
-16. Push and verify `just ci` is green in GitHub CI.
+16. Run `just ci` locally, push once, and verify GitHub CI is green before
+    merging.
 17. Leave the full vlib and full official suites running as non-blocking
     telemetry.
 
-Local `cargo test`, `cargo clippy`, and `cargo fmt` are useful fast feedback.
-GitHub Actions remains the source of truth for pull requests.
+The local `just ci` gate (natively, or `docker compose run --rm app just ci`
+on machines without LLVM 15) is the red/green inner loop. GitHub Actions is
+the merge gate: a feature is done only when CI is green, but pushing is never
+how you discover whether a test is red.
 
 ## Current Baseline
 
