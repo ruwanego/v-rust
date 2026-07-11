@@ -62,9 +62,14 @@ Completed:
 - 1.2 Module declarations
 - 1.3 Imports (builtin allowlist resolution; selective imports parse-only)
 
-Next: **1.4 Function Return Types**
+Next: **Backend migration to Cranelift** — steps 2–6 of the Migration Order
+in `docs/repository-strategy.md` (codegen_traits, codegen_llvm extraction,
+driver crate, codegen_cranelift, Cranelift as the default test backend).
 
-Do not start 1.5 or later until 1.4 is promoted through L0 and L1.
+This is prioritized ahead of 1.4 so the full gate, including tiny fixtures,
+runs locally without any LLVM install. One migration step per PR. Language
+work resumes at **1.4 Function Return Types** once `just ci` passes locally
+on a machine with no LLVM.
 
 ## Feature Micro-Loop
 

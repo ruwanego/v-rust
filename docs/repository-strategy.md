@@ -111,13 +111,23 @@ request.
 
 ## Migration Order
 
+This migration is prioritized ahead of further language features (see
+`AGENT.md` Current Phase). Goal: the default local build and the full
+`just ci` gate must not require a system LLVM install. Cranelift is a
+pure-Rust dependency; LLVM stays behind an optional cargo feature used by
+the merge-queue heavy path.
+
 1. Done: move `src/lex`, `src/parse`, and `src/sema` into
    `crates/frontend`.
 2. Next: add `crates/codegen_traits` with a minimal backend trait.
 3. Move the current Inkwell implementation into `crates/codegen_llvm`.
 4. Move `src/driver` and `src/main.rs` into `crates/driver`.
 5. Add `crates/codegen_cranelift` with the smallest executable backend.
-6. Change PR fast-path tests to use Cranelift only.
+   Emit object code with `cranelift-object`; link with the platform linker
+   (MSVC `link.exe` on Windows, `cc` on Unix), not clang.
+6. Change PR fast-path tests to use Cranelift only. Cranelift becomes the
+   default backend feature; building or testing without `--features llvm`
+   must not compile Inkwell.
 7. Add IR snapshot tests with `insta`.
 8. Promote LLVM optimized checks to the merge queue heavy path.
 
