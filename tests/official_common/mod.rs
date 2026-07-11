@@ -8,8 +8,8 @@ fn v_rust_command() -> Command {
 }
 
 /// Pinned ref for the official V corpus so the acceptance suite is
-/// deterministic. Bump by editing tests/v_repo_ref.txt, then delete
-/// tests/v_official_repo and re-run.
+/// deterministic. Bump by editing `tests/v_repo_ref.txt`, then delete
+/// `tests/v_official_repo` and re-run.
 const V_REPO_REF: &str = include_str!("../v_repo_ref.txt");
 
 pub fn ensure_official_repo(repo_dir: &Path) {
