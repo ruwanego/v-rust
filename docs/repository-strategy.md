@@ -113,7 +113,7 @@ one step per pull request.
 ## Migration Order
 
 This migration is prioritized ahead of further language features (see
-`AGENT.md` Current Phase). Goal: the default local build and the full
+`AGENTS.md` Current Phase). Goal: the default local build and the full
 `just ci` gate must not require a system LLVM install. Cranelift is a
 pure-Rust dependency; LLVM stays behind an optional cargo feature used by
 the merge-queue heavy path.
