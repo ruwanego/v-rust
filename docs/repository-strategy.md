@@ -134,9 +134,10 @@ the merge-queue heavy path.
    Emits object code with `cranelift-object`; links with the platform linker
    (MSVC `link.exe` on Windows, `cc` on Unix), not clang. Covered by an
    end-to-end crate test that compiles, links, and runs a V program.
-6. Change PR fast-path tests to use Cranelift only. Cranelift becomes the
-   default backend feature; building or testing without `--features llvm`
-   must not compile Inkwell.
+6. Done: Cranelift is the default backend feature and the PR fast path is
+   LLVM-free (`--workspace --exclude codegen_llvm`; building or testing
+   without `--features llvm` does not compile Inkwell). The LLVM backend is
+   exercised by the weekly `llvm-parity` lane in progress.yml.
 7. Add IR snapshot tests with `insta`.
 8. Promote LLVM optimized checks to the merge queue heavy path.
 

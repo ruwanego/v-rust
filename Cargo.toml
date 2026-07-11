@@ -8,10 +8,12 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default = ["codegen"]
-codegen = ["dep:codegen_llvm"]
+default = ["cranelift"]
+cranelift = ["dep:codegen_cranelift"]
+llvm = ["dep:codegen_llvm"]
 
 [dependencies]
+codegen_cranelift = { path = "crates/codegen_cranelift", optional = true }
 codegen_llvm = { path = "crates/codegen_llvm", optional = true }
 clap = { version = "4.0", features = ["derive"] }
 frontend = { path = "crates/frontend" }

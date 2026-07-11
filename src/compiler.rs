@@ -32,14 +32,25 @@ pub fn compile_file(input: &Path, output: &Path) -> Result<(), String> {
         }
     };
 
-    #[cfg(feature = "codegen")]
+    // Cranelift is the default backend; LLVM is the optimized lane. When
+    // both features are enabled, Cranelift wins.
+    #[cfg(feature = "cranelift")]
+    {
+        use codegen_traits::CodegenBackend as _;
+
+        codegen_cranelift::CraneliftBackend
+            .compile(&checked_program, output)
+            .map_err(|e| e.to_string())?;
+    }
+
+    #[cfg(all(feature = "llvm", not(feature = "cranelift")))]
     {
         use codegen_traits::CodegenBackend as _;
 
         codegen_llvm::LlvmBackend.compile(&checked_program, output).map_err(|e| e.to_string())?;
     }
 
-    #[cfg(not(feature = "codegen"))]
+    #[cfg(not(any(feature = "cranelift", feature = "llvm")))]
     {
         let _ = output;
         let _ = checked_program;

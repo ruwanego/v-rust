@@ -60,9 +60,12 @@ fn run_pass_fixture(fixture: &Path) -> Result<(), Failed> {
         return Err(render_process_failure("run", fixture, &run_output).into());
     }
 
+    // Normalize CRLF so fixtures behave identically on Windows text-mode
+    // stdout and git autocrlf checkouts.
     let expected_stdout = fs::read_to_string(fixture.with_extension("stdout"))
-        .map_err(|e| format!("failed to read expected stdout for {}: {e}", fixture.display()))?;
-    let actual_stdout = String::from_utf8_lossy(&run_output.stdout);
+        .map_err(|e| format!("failed to read expected stdout for {}: {e}", fixture.display()))?
+        .replace("\r\n", "\n");
+    let actual_stdout = String::from_utf8_lossy(&run_output.stdout).replace("\r\n", "\n");
     if actual_stdout != expected_stdout {
         return Err(format!(
             "stdout mismatch for {}\nexpected:\n{}\nactual:\n{}",
@@ -87,11 +90,13 @@ fn run_fail_fixture(fixture: &Path) -> Result<(), Failed> {
 
     let expected_error = fs::read_to_string(fixture.with_extension("stderr"))
         .map_err(|e| format!("failed to read expected stderr for {}: {e}", fixture.display()))?;
+    // Normalize Windows path separators so .stderr expectations stay portable.
     let actual_error = format!(
         "{}{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
-    );
+    )
+    .replace('\\', "/");
 
     if !actual_error.contains(expected_error.trim()) {
         return Err(format!(

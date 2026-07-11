@@ -17,8 +17,8 @@ Summary of the loop (full version in `AGENT.md`):
 - Red L0 unit test → red L1 tiny fixture → smallest implementation →
   local `just ci` green → refactor → promote at most one official/vlib test
   path → push once → confirm GitHub CI green with `gh`.
-- Local testing: `just ci` natively, or on machines without LLVM 15
-  (e.g. Windows) `docker compose run --rm app just ci`.
+- Local testing: `just ci` runs natively on any machine — Cranelift is the
+  default backend, no LLVM install needed. The LLVM lane is weekly CI only.
 - Never implement behavior from memory; the docs and the pinned official V
   repo (`tests/v_official_repo`) are the language contract.
 

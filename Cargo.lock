@@ -1010,6 +1010,7 @@ version = "0.1.0"
 dependencies = [
  "assert_cmd",
  "clap",
+ "codegen_cranelift",
  "codegen_llvm",
  "codegen_traits",
  "frontend",

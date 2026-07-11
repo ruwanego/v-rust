@@ -11,6 +11,7 @@ env:
 
 jobs:
   full-suite-progress:
+    # ubuntu-22.04: llvm-15 is packaged in jammy; keep in sync with Dockerfile
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
@@ -24,6 +25,10 @@ jobs:
       - uses: extractions/setup-just@v2
 
       - uses: Swatinem/rust-cache@v2
+
+      - name: Run LLVM backend parity lane
+        continue-on-error: true
+        run: just llvm-parity
 
       - name: Run vlib suite progress log
         continue-on-error: true

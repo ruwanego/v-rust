@@ -5,15 +5,13 @@ repository. Read it completely before writing any code.
 
 ## Non-Negotiable Rules
 
-1. **Local red/green first, at whatever depth the machine allows.** Never
-   push to CI just to find out whether a test is red or green when a local
-   check can answer it. Depth ladder, use the deepest rung available:
-   - Full: `just ci` (needs LLVM 15; or `docker compose run --rm app just ci`).
-   - LLVM-free: `just unit-frontend` — lexer/parser/sema tests with no
-     inkwell/LLVM build. On slow machines this is the required minimum for
-     every red and green step that touches the frontend.
-   - Codegen changes and tiny fixtures that cannot build locally are the only
-     things allowed to get their first verification from GitHub CI.
+1. **Local `just ci` is the inner loop, and it needs no LLVM.** Cranelift is
+   the default backend, so the full gate — including tiny fixtures that
+   compile, link, and run real binaries — runs on any machine with Rust and
+   a platform linker (MSVC on Windows, cc on Unix). Run it at every
+   red/green step. Never push to CI just to find out whether a test is red
+   or green. The LLVM backend lane (`just llvm-parity`) runs weekly in CI
+   and is not part of the inner loop.
 
 2. **GitHub CI is the merge gate, not the test runner.** Push once per
    completed feature loop, then confirm CI is green with `gh` before merging.
@@ -62,10 +60,12 @@ Completed:
 - 1.2 Module declarations
 - 1.3 Imports (builtin allowlist resolution; selective imports parse-only)
 
-Next: **Backend migration to Cranelift** — steps 5–6 of the Migration Order
-in `docs/repository-strategy.md` (codegen_cranelift, then Cranelift as the
-default test backend). Steps 2–4 are done (the root package is the driver
-crate by decision).
+Next: **1.4 Function Return Types**
+
+The backend migration (steps 2–6 of the Migration Order in
+`docs/repository-strategy.md`) is complete: Cranelift is the default
+backend and the full gate runs locally without LLVM. Do not start 1.5 or
+later until 1.4 is promoted through L0 and L1.
 
 This is prioritized ahead of 1.4 so the full gate, including tiny fixtures,
 runs locally without any LLVM install. One migration step per PR. Language
