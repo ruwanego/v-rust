@@ -62,9 +62,10 @@ Completed:
 - 1.2 Module declarations
 - 1.3 Imports (builtin allowlist resolution; selective imports parse-only)
 
-Next: **Backend migration to Cranelift** — steps 2–6 of the Migration Order
-in `docs/repository-strategy.md` (codegen_traits, codegen_llvm extraction,
-driver crate, codegen_cranelift, Cranelift as the default test backend).
+Next: **Backend migration to Cranelift** — steps 3–6 of the Migration Order
+in `docs/repository-strategy.md` (codegen_llvm extraction, driver crate,
+codegen_cranelift, Cranelift as the default test backend). Step 2
+(codegen_traits) is done.
 
 This is prioritized ahead of 1.4 so the full gate, including tiny fixtures,
 runs locally without any LLVM install. One migration step per PR. Language

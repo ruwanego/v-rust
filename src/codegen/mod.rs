@@ -1,3 +1,4 @@
+use codegen_traits::{BackendError, CodegenBackend};
 use frontend::parse::ast::{BinaryOp, UnaryOp};
 use frontend::sema::{CheckedExpr, CheckedExprKind, CheckedProgram, CheckedStmt};
 use inkwell::context::Context;
@@ -7,7 +8,10 @@ use inkwell::targets::{
 };
 use inkwell::OptimizationLevel;
 use std::collections::HashMap;
+use std::env;
+use std::io::ErrorKind;
 use std::path::Path;
+use std::process::{Command as ProcessCommand, Output};
 
 type LocalEnv<'ctx> =
     HashMap<String, (inkwell::types::BasicTypeEnum<'ctx>, inkwell::values::PointerValue<'ctx>)>;
@@ -213,4 +217,53 @@ impl<'ctx> CodeGen<'ctx> {
             .write_to_file(&self.module, FileType::Object, output_path)
             .map_err(|e| e.to_string())
     }
+}
+
+/// LLVM/Inkwell implementation of the abstract backend contract.
+pub struct LlvmBackend;
+
+impl CodegenBackend for LlvmBackend {
+    fn compile(&self, program: &CheckedProgram, output: &Path) -> Result<(), BackendError> {
+        let context = Context::create();
+        let codegen = CodeGen::new(&context, "v_module");
+        codegen.generate(program);
+
+        let obj_dir = tempfile::tempdir()
+            .map_err(|e| BackendError::new(format!("Failed to create object temp dir: {e}")))?;
+        let obj_path = obj_dir.path().join("output.o");
+        codegen
+            .write_obj(&obj_path)
+            .map_err(|e| BackendError::new(format!("Codegen error: {e}")))?;
+
+        let linker_output = link_object(&obj_path, output).map_err(BackendError::new)?;
+
+        if !linker_output.status.success() {
+            return Err(BackendError::new(format!(
+                "Linker failed:\n{}",
+                String::from_utf8_lossy(&linker_output.stderr)
+            )));
+        }
+
+        Ok(())
+    }
+}
+
+fn link_object(obj_path: &Path, output: &Path) -> Result<Output, String> {
+    let configured_linker = env::var("CLANG").ok().filter(|value| !value.trim().is_empty());
+    let candidates = configured_linker.iter().map(String::as_str).chain(["clang", "clang-15"]);
+    let mut missing_linkers = Vec::new();
+
+    for linker in candidates {
+        match ProcessCommand::new(linker).arg(obj_path).arg("-o").arg(output).output() {
+            Ok(output) => return Ok(output),
+            Err(error) if error.kind() == ErrorKind::NotFound => {
+                missing_linkers.push(linker.to_string());
+            }
+            Err(error) => {
+                return Err(format!("Failed to execute linker `{linker}`: {error}"));
+            }
+        }
+    }
+
+    Err(format!("Failed to execute linker. Tried: {}", missing_linkers.join(", ")))
 }

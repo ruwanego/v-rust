@@ -119,8 +119,9 @@ the merge-queue heavy path.
 
 1. Done: move `src/lex`, `src/parse`, and `src/sema` into
    `crates/frontend`.
-2. Next: add `crates/codegen_traits` with a minimal backend trait.
-3. Move the current Inkwell implementation into `crates/codegen_llvm`.
+2. Done: add `crates/codegen_traits` with a minimal backend trait; the
+   root-package Inkwell path implements it.
+3. Next: move the current Inkwell implementation into `crates/codegen_llvm`.
 4. Move `src/driver` and `src/main.rs` into `crates/driver`.
 5. Add `crates/codegen_cranelift` with the smallest executable backend.
    Emit object code with `cranelift-object`; link with the platform linker

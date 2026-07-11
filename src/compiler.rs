@@ -2,13 +2,6 @@ use frontend::{lex, sema};
 use std::fmt::Write as _;
 use std::path::Path;
 
-#[cfg(feature = "codegen")]
-use std::{
-    env,
-    io::ErrorKind,
-    process::{Command as ProcessCommand, Output},
-};
-
 pub fn compile_file(input: &Path, output: &Path) -> Result<(), String> {
     if !input.exists() {
         return Err(format!("Error: File {} not found.", input.display()));
@@ -41,27 +34,9 @@ pub fn compile_file(input: &Path, output: &Path) -> Result<(), String> {
 
     #[cfg(feature = "codegen")]
     {
-        use inkwell::context::Context;
+        use codegen_traits::CodegenBackend as _;
 
-        let context = Context::create();
-        let codegen = crate::codegen::CodeGen::new(&context, "v_module");
-        codegen.generate(&checked_program);
-
-        let obj_dir =
-            tempfile::tempdir().map_err(|e| format!("Failed to create object temp dir: {e}"))?;
-        let obj_path = obj_dir.path().join("output.o");
-        if let Err(e) = codegen.write_obj(&obj_path) {
-            return Err(format!("Codegen error: {e}"));
-        }
-
-        let linker_output = link_object(&obj_path, output)?;
-
-        if !linker_output.status.success() {
-            return Err(format!(
-                "Linker failed:\n{}",
-                String::from_utf8_lossy(&linker_output.stderr)
-            ));
-        }
+        crate::codegen::LlvmBackend.compile(&checked_program, output).map_err(|e| e.to_string())?;
     }
 
     #[cfg(not(feature = "codegen"))]
@@ -71,25 +46,4 @@ pub fn compile_file(input: &Path, output: &Path) -> Result<(), String> {
     }
 
     Ok(())
-}
-
-#[cfg(feature = "codegen")]
-fn link_object(obj_path: &Path, output: &Path) -> Result<Output, String> {
-    let configured_linker = env::var("CLANG").ok().filter(|value| !value.trim().is_empty());
-    let candidates = configured_linker.iter().map(String::as_str).chain(["clang", "clang-15"]);
-    let mut missing_linkers = Vec::new();
-
-    for linker in candidates {
-        match ProcessCommand::new(linker).arg(obj_path).arg("-o").arg(output).output() {
-            Ok(output) => return Ok(output),
-            Err(error) if error.kind() == ErrorKind::NotFound => {
-                missing_linkers.push(linker.to_string());
-            }
-            Err(error) => {
-                return Err(format!("Failed to execute linker `{linker}`: {error}"));
-            }
-        }
-    }
-
-    Err(format!("Failed to execute linker. Tried: {}", missing_linkers.join(", ")))
 }

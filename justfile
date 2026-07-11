@@ -13,9 +13,11 @@ lint:
 # Covers lexer/parser/sema red-green; codegen and fixtures run in CI.
 unit-frontend *args:
     cargo test --locked --package frontend --lib {{args}}
+    cargo test --locked --package codegen_traits --lib {{args}}
 
 unit *args:
     cargo test --locked --package frontend --lib --all-features {{args}}
+    cargo test --locked --package codegen_traits --lib --all-features {{args}}
     cargo test --locked --package v-rust --lib --bins --all-features {{args}}
 
 tiny *args:
