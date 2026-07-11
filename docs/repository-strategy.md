@@ -130,9 +130,10 @@ the merge-queue heavy path.
    harness that resolves the `v-rust` binary. Physically relocating it to
    `crates/driver` is deferred until it blocks something; revisit after
    step 8.
-5. Add `crates/codegen_cranelift` with the smallest executable backend.
-   Emit object code with `cranelift-object`; link with the platform linker
-   (MSVC `link.exe` on Windows, `cc` on Unix), not clang.
+5. Done: add `crates/codegen_cranelift` with the smallest executable backend.
+   Emits object code with `cranelift-object`; links with the platform linker
+   (MSVC `link.exe` on Windows, `cc` on Unix), not clang. Covered by an
+   end-to-end crate test that compiles, links, and runs a V program.
 6. Change PR fast-path tests to use Cranelift only. Cranelift becomes the
    default backend feature; building or testing without `--features llvm`
    must not compile Inkwell.

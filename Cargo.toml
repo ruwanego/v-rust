@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "crates/frontend", "crates/codegen_traits", "crates/codegen_llvm"]
+members = [".", "crates/frontend", "crates/codegen_traits", "crates/codegen_llvm", "crates/codegen_cranelift"]
 resolver = "2"
 
 [package]

@@ -1,0 +1,27 @@
+[package]
+name = "codegen_cranelift"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+frontend = { path = "../frontend" }
+codegen_traits = { path = "../codegen_traits" }
+tempfile = "3.8"
+cranelift-codegen = "0.133.1"
+cranelift-frontend = "0.133.1"
+cranelift-module = "0.133.1"
+cranelift-object = "0.133.1"
+cc = "1.2.67"
+cranelift-native = "0.133.1"
+
+[lints.rust]
+unsafe_code = "forbid"
+warnings = "deny"
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+cast_sign_loss = "allow"
+match_same_arms = "allow"
+missing_errors_doc = "allow"
+too_many_lines = "allow"
