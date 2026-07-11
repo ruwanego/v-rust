@@ -9,6 +9,11 @@ check:
 lint:
     cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
 
+# LLVM-free inner loop for machines that cannot build inkwell/LLVM locally.
+# Covers lexer/parser/sema red-green; codegen and fixtures run in CI.
+unit-frontend *args:
+    cargo test --locked --package frontend --lib {{args}}
+
 unit *args:
     cargo test --locked --package frontend --lib --all-features {{args}}
     cargo test --locked --package v-rust --lib --bins --all-features {{args}}

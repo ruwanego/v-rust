@@ -5,13 +5,15 @@ repository. Read it completely before writing any code.
 
 ## Non-Negotiable Rules
 
-1. **Local `just ci` is the inner loop.** Run tests locally at every red/green
-   step. On a machine without native LLVM 15 (e.g. Windows), run the same
-   gate through Docker:
-   ```
-   docker compose run --rm app just ci
-   ```
-   Never push to CI just to find out whether a test is red or green.
+1. **Local red/green first, at whatever depth the machine allows.** Never
+   push to CI just to find out whether a test is red or green when a local
+   check can answer it. Depth ladder, use the deepest rung available:
+   - Full: `just ci` (needs LLVM 15; or `docker compose run --rm app just ci`).
+   - LLVM-free: `just unit-frontend` — lexer/parser/sema tests with no
+     inkwell/LLVM build. On slow machines this is the required minimum for
+     every red and green step that touches the frontend.
+   - Codegen changes and tiny fixtures that cannot build locally are the only
+     things allowed to get their first verification from GitHub CI.
 
 2. **GitHub CI is the merge gate, not the test runner.** Push once per
    completed feature loop, then confirm CI is green with `gh` before merging.
@@ -73,10 +75,12 @@ run locally (natively or via `docker compose run --rm app just <recipe>`).
    section in the commit message or PR description.
 2. Confirm the feature is in the current phase of `docs/tdd-roadmap.md`.
 3. Identify or add the Rust semantic home in `ARCHITECTURE_MAPPING.md`.
-4. Write one failing Rust unit test (L0). Run `just unit` — it must fail at
-   exactly that test. If it passes, the test is wrong.
+4. Write one failing Rust unit test (L0). Run `just unit` (or
+   `just unit-frontend` on machines without LLVM) — it must fail at exactly
+   that test. If it passes, the test is wrong.
 5. Write one failing tiny V fixture (L1). Run `just tiny` — it must fail at
-   exactly that fixture.
+   exactly that fixture. If `just tiny` cannot build locally (no LLVM), CI
+   may provide this one verification.
 6. Write the smallest implementation that satisfies both failures.
 7. Run `just ci` locally. It must be fully green.
 8. Refactor only after green. Run `just ci` again.
