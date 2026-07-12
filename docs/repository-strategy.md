@@ -161,7 +161,9 @@ Rules:
 4. Sync with upstream using `git rebase origin/main`.
 5. Do not push merge commits.
 6. Pull requests are squash-merged.
-7. One pull request lands as exactly one atomic trunk commit.
+7. One pull request lands as exactly one atomic trunk commit. A feature branch
+   may keep the architecture-mapping and implementation changes as separate
+   review commits before GitHub squash-merges them.
 8. Branch names should be short and descriptive, for example
    `frontend-crate-split`, `cranelift-min-backend`, or `ir-snapshots`.
 
@@ -196,12 +198,11 @@ Target behavior:
 1. Build LLVM/Inkwell using runner-provided LLVM packages.
 2. Run optimized LLVM backend checks.
 3. Run end-to-end regression suites.
-4. Run full official and vlib progress suites.
-5. Fail only after supported subsets are promoted out of telemetry.
+4. Block the merge group on LLVM parity for supported behavior.
 
-The full official and vlib suites are currently expected-red telemetry. They
-must stay visible in CI logs, but they must not block trunk until the compiler
-has a meaningful supported subset.
+The full official and vlib suites remain expected-red weekly telemetry. They do
+not run in the blocking merge-group job until their supported subsets are
+promoted into the green gate.
 
 ## IR Snapshot Testing
 

@@ -37,9 +37,10 @@ repository. Read it completely before writing any code, together with:
    mapping update and the implementation must not be in the same commit.
 
 6. **Behavior comes from the official V docs and the pinned V corpus, never
-   from memory.** Every feature records the official doc URL and section.
-   When docs are ambiguous, the behavior of the pinned official `v` compiler
-   (release tag in `tests/v_repo_ref.txt`) is the tie-breaker.
+   from memory.** Every feature records the live official doc URL and section
+   plus the matching section in the pinned `tests/v_official_repo/doc/docs.md`.
+   When docs are ambiguous, the behavior of the exact official `v` commit in
+   `tests/v_repo_commit.txt` is the tie-breaker.
 
 7. **No doc drift.** If a change makes any statement in `AGENTS.md`,
    `ARCHITECTURE_MAPPING.md`, or `docs/` false, fix that statement in the
@@ -79,11 +80,13 @@ run locally with `just <recipe>`; no LLVM or Docker is needed.
    section in the commit message or PR description.
 2. Confirm the feature is in the current phase of `docs/tdd-roadmap.md`.
 3. Identify or add the Rust semantic home in `ARCHITECTURE_MAPPING.md`.
-4. Write one failing Rust unit test (L0). Run `just unit` — it must fail at
-   exactly that test. If it passes, the test is wrong.
-5. Write one failing tiny V fixture (L1). Run `just tiny` — it must fail at
-   exactly that fixture.
-6. Write the smallest implementation that satisfies both failures.
+4. For each affected L0 layer, work outward in order: lexer, parser, semantic
+   analysis, then codegen. Add one failing test, run `just unit`, implement the
+   smallest layer change, and return to green before moving to the next layer.
+   Do not add lexer/parser tests when the rule does not change those layers.
+5. After affected L0 layers are green, add one L1 fixture. Run `just tiny` and
+   verify that it fails for the behavior the lower layers do not yet provide.
+6. Write the smallest end-to-end implementation that makes the L1 fixture pass.
 7. Run `just ci` locally. It must be fully green.
 8. Refactor only after green. Run `just ci` again.
 9. If a relevant official or vlib test is now supported, add exactly one path
@@ -132,8 +135,8 @@ The blocking gate (`just ci`) expands to:
 fmt -> check -> lint -> unit -> tiny -> official-subset -> vlib-subset
 ```
 
-The full official and vlib suites and the LLVM parity lane are non-blocking
-telemetry. They run weekly. Do not treat their failures as blockers.
+The full official and vlib suites are non-blocking weekly telemetry. LLVM parity
+is weekly telemetry on ordinary branches and a blocking merge-queue check.
 
 ## Hard Stops
 
@@ -148,6 +151,15 @@ Stop immediately and do not proceed if any of the following is true:
 - A refactor is mixed into a feature commit.
 - A binding doc still describes the pre-change behavior after your commit
   (see rule 7: fix the doc in the same commit).
+
+### P0 Security And Regression Exception
+
+A narrowly scoped fix for a security defect, compiler panic, silent
+miscompilation, or regression in behavior already claimed as supported may
+interrupt the current phase. It must cite the existing supported behavior,
+follow the affected-layer L0/L1 loop above, avoid adjacent feature work, update
+binding docs if necessary, and pass `just ci`. This exception cannot be used to
+introduce unrelated future syntax or semantics.
 
 ## Promotion Checklist
 

@@ -41,12 +41,16 @@ Rules:
 
 Purpose: isolate compiler internals before end-to-end noise.
 
-Required for every language feature:
+Required only for layers affected by the language rule:
 
 1. Lexer test for new tokens or literal forms.
-2. Parser test for new AST shape.
-3. Semantic analyzer test for valid and invalid type/scope behavior.
-4. Codegen test only when behavior reaches executable output.
+2. Parser test for a new AST shape.
+3. Semantic analyzer tests for valid and invalid type/scope behavior.
+4. Codegen test when behavior reaches executable output.
+
+Work outward one layer at a time. Each affected layer gets its own red/green
+step and returns to green before the next layer starts. Do not create redundant
+lexer or parser tests for rules that do not change those layers.
 
 Run in CI through:
 
@@ -196,24 +200,25 @@ Use this exact loop for every compiler feature:
 1. Select exactly one V semantic rule from the official docs.
 2. Write down the doc page and section in the issue, PR, or commit notes.
 3. Identify the Rust semantic home in `ARCHITECTURE_MAPPING.md`.
-4. Add or update one Rust unit test.
-5. Run `just unit` locally and verify it fails at exactly that test.
-6. Add or update one tiny V fixture for the same behavior.
-7. Run `just tiny` locally and verify it fails at exactly that fixture.
-8. Implement the smallest compiler change that can satisfy both failures.
-9. Run `just ci` locally and verify it is fully green.
-10. Refactor only after green.
-11. Run `just ci` locally again and verify it stays green.
-12. Inspect the full official suite progress log.
-13. Inspect the vlib progress log when the feature touches standard-library
+4. For each affected L0 layer in lexer/parser/sema/codegen order, add one
+   focused failing test, run `just unit`, implement that layer, and return to
+   green before continuing.
+5. Once the lower layers are green, add one tiny V fixture for the same rule.
+6. Run `just tiny` and verify the fixture fails at the remaining end-to-end
+   behavior, not an already-completed lower layer.
+7. Implement the smallest remaining change and return `just tiny` to green.
+8. Run `just ci` locally and verify it is fully green.
+9. Refactor only after green, then run `just ci` again.
+10. Inspect the full official suite progress log.
+11. Inspect the vlib progress log when the feature touches standard-library
     behavior.
-14. If a relevant official test is now supported, add exactly one path to
+12. If a relevant official test is now supported, add exactly one path to
     `tests/official_subset.txt`.
-15. If a relevant vlib test is now supported, add exactly one path to
+13. If a relevant vlib test is now supported, add exactly one path to
     `tests/vlib_subset.txt`.
-16. Run `just ci` locally, push once, and verify GitHub CI is green before
+14. Run `just ci` locally, push once, and verify GitHub CI is green before
     merging.
-17. Leave the full vlib and full official suites running as non-blocking
+15. Leave the full vlib and full official suites running as non-blocking
     telemetry.
 
 The local `just ci` gate is the red/green inner loop; it runs natively on any
@@ -278,33 +283,30 @@ generated binary, but it does not yet synthesize or execute V test functions.
 6. Add tiny fail fixture for unresolved import.
 7. Add tiny pass fixture only for imports the compiler can resolve.
 
-#### 1.4 Function Return Types
+#### 1.4 Zero-Argument Function Signatures And Return Types
 
-1. Parse `fn name() Type`.
-2. Add `return` token and statement.
-3. Enforce return expression type.
-4. Enforce missing return for non-void functions.
-5. Allow `main` to omit a return type.
-6. Generate returned values in codegen.
-7. Add tiny fixture calling `println(add())`.
+1. Collect all zero-argument function signatures before analyzing bodies.
+2. Resolve calls to functions declared before or after the caller.
+3. Parse `fn name() Type`.
+4. Add `return` token and statement.
+5. Enforce return expression type.
+6. Enforce missing return for non-void functions.
+7. Allow `main` to omit a return type.
+8. Generate returned values and zero-argument calls in both backends.
+9. Add a tiny fixture calling a later-declared returning function.
+10. Promote one isolated official function-order test when test-function
+    synthesis can execute it.
 
 #### 1.5 Function Parameters
 
 1. Parse parameter list as `name type`.
-2. Add function symbols before analyzing bodies.
+2. Extend the 1.4 function signatures with parameter types.
 3. Enforce arity.
 4. Enforce argument types.
 5. Bind parameters in function scope.
 6. Generate backend function params (Cranelift first).
 7. Add tiny pass fixture for `fn add(x int, y int) int`.
 8. Add tiny fail fixture for wrong arity.
-
-#### 1.6 Function Hoisting
-
-1. Add Rust sema test where `main` calls a function declared later.
-2. Build function symbol table before body analysis.
-3. Add tiny pass fixture matching the official function-hoisting docs.
-4. Promote one official function-order test if isolated.
 
 ### Phase 2: Correct V Test Semantics
 
@@ -545,8 +547,8 @@ Unexpected failures:
 
 Expected red commits:
 
-1. A red commit should introduce exactly one failing Rust unit test or tiny
-   fixture.
+1. A red commit should introduce exactly one failing test for the current
+   affected layer or one L1 fixture after lower layers are green.
 2. Its commit message should identify the feature under construction.
 3. It should not include unrelated refactors.
 4. It should be followed by a green implementation commit.
