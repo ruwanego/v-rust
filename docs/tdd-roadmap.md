@@ -84,6 +84,7 @@ Rules:
 4. A fail fixture must fail compilation.
 5. stdout plus stderr must contain the `.stderr` substring.
 6. Each fixture covers one behavior only.
+7. The compiler and every produced binary run under a 10 s timeout, overridable with `V_RUST_TEST_TIMEOUT_SECS`; a timeout fails with a message naming the fixture or test file.
 
 Run in CI through:
 
