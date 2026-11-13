@@ -291,6 +291,6 @@ mod tests {
     fn emits_object_for_empty_program() {
         let program = CheckedProgram { functions: vec![] };
         let bytes = emit_object(&program).expect("emit should succeed");
-        assert!(!bytes.is_empty());
+        assert_ne!(bytes, [] as [u8; 0]);
     }
 }
