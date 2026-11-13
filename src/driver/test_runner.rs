@@ -1,3 +1,4 @@
+use super::process::{execution_timeout, run_with_timeout, RunOutcome};
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::process::Command as ProcessCommand;
@@ -123,9 +124,24 @@ fn run_test_file(test_file: &Path) -> Result<(), String> {
         return Err("Compiler did not produce an output binary.".to_string());
     }
 
-    let output = ProcessCommand::new(&test_binary)
-        .output()
-        .map_err(|e| format!("Failed to execute test binary: {e}"))?;
+    let timeout = execution_timeout();
+    let output = match run_with_timeout(&mut ProcessCommand::new(&test_binary), timeout)
+        .map_err(|e| format!("Failed to execute test binary: {e}"))?
+    {
+        RunOutcome::Finished(output) => output,
+        RunOutcome::TimedOut(output) => {
+            return Err(format!(
+                "Test binary timed out after {} s.
+stdout:
+{}
+stderr:
+{}",
+                timeout.as_secs(),
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            ));
+        }
+    };
 
     if output.status.success() {
         return Ok(());

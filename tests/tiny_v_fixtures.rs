@@ -3,7 +3,7 @@ mod tiny_common;
 use libtest_mimic::{Arguments, Failed, Trial};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command as StdCommand;
+use std::time::Duration;
 
 fn main() {
     let args = Arguments::from_args();
@@ -40,12 +40,40 @@ fn fixture_name(kind: &str, fixture: &Path) -> String {
     format!("{kind}::{name}")
 }
 
+fn execution_timeout() -> Duration {
+    std::env::var("V_RUST_TEST_TIMEOUT_SECS")
+        .ok()
+        .and_then(|raw| raw.trim().parse::<u64>().ok())
+        .filter(|secs| *secs > 0)
+        .map_or(Duration::from_secs(10), Duration::from_secs)
+}
+
+/// Runs `cmd` under the execution timeout, naming the fixture on timeout.
+fn run_bounded(
+    stage: &str,
+    fixture: &Path,
+    cmd: &mut assert_cmd::Command,
+) -> Result<std::process::Output, Failed> {
+    let timeout = execution_timeout();
+    cmd.timeout(timeout).output().map_err(|e| {
+        if e.kind() == std::io::ErrorKind::TimedOut {
+            format!("{stage} timed out after {} s for {}", timeout.as_secs(), fixture.display())
+        } else {
+            format!("{stage} failed to run for {}: {e}", fixture.display())
+        }
+        .into()
+    })
+}
+
 fn run_pass_fixture(fixture: &Path) -> Result<(), Failed> {
     let temp_dir = tempfile::tempdir().map_err(|e| format!("failed to create temp dir: {e}"))?;
     let binary = temp_dir.path().join(format!("fixture{}", std::env::consts::EXE_SUFFIX));
 
-    let compile_output =
-        tiny_common::v_rust_command().arg(fixture).arg("-o").arg(&binary).output().unwrap();
+    let compile_output = run_bounded(
+        "compile",
+        fixture,
+        tiny_common::v_rust_command().arg(fixture).arg("-o").arg(&binary),
+    )?;
 
     if !compile_output.status.success() {
         return Err(render_process_failure("compile", fixture, &compile_output).into());
@@ -55,7 +83,7 @@ fn run_pass_fixture(fixture: &Path) -> Result<(), Failed> {
         return Err(format!("compiler did not produce binary {}", binary.display()).into());
     }
 
-    let run_output = StdCommand::new(&binary).output().unwrap();
+    let run_output = run_bounded("run", fixture, &mut assert_cmd::Command::new(&binary))?;
     if !run_output.status.success() {
         return Err(render_process_failure("run", fixture, &run_output).into());
     }
@@ -80,7 +108,7 @@ fn run_pass_fixture(fixture: &Path) -> Result<(), Failed> {
 }
 
 fn run_fail_fixture(fixture: &Path) -> Result<(), Failed> {
-    let output = tiny_common::v_rust_command().arg(fixture).output().unwrap();
+    let output = run_bounded("compile", fixture, tiny_common::v_rust_command().arg(fixture))?;
 
     if output.status.success() {
         return Err(
