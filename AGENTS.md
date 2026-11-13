@@ -68,8 +68,11 @@ Before touching any `.rs` or `.toml` file, answer these in order:
 
 The backend migration (steps 2–6 of the Migration Order in
 `docs/repository-strategy.md`) is complete: Cranelift is the default
-backend and the full gate runs locally without LLVM. Do not start 1.5 or
-later until 1.4 is promoted through L0 and L1.
+backend and the full gate runs locally without LLVM. Gate hardening and the
+P0 fixes in the approved hardening plan (corpus pinning, oracle lane, and
+the `println`, string-local, and short-circuit defects) come before 1.4.
+1.4 remains the next language feature. Do not start 1.5 or later until 1.4
+is promoted through L0 and L1.
 
 ## Feature Micro-Loop
 
