@@ -33,10 +33,10 @@ requests.
 Compiler work should move in small red/green/refactor steps:
 
 1. Add one failing Rust unit test or tiny V fixture.
-2. Push and confirm the expected CI failure.
-3. Implement the smallest compiler change.
-4. Push and confirm green CI.
-5. Refactor only after the gate is green.
+2. Run it locally with `just` and confirm it is red for the expected reason.
+3. Implement the smallest compiler change and return to green with `just ci`.
+4. Push once per completed feature loop; confirm GitHub CI is green before merging.
+5. Refactor only after the gate is green, and re-run `just ci`.
 
 Full vlib and full official suites are currently expected-red progress logs.
 Promote individual tests into subset manifests only when the same behavior is
